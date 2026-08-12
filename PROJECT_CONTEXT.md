@@ -307,22 +307,22 @@ Understand and manipulate NFL player data with Python.
 
 Tasks:
 
-* [ ] Create Python virtual environment
-* [ ] Configure repository
-* [ ] Install initial dependencies
-* [ ] Create exploration notebook
-* [ ] Load one completed NFL season
-* [ ] Inspect dataset type
-* [ ] Inspect row/column counts
-* [ ] Inspect columns
-* [ ] Understand what one row represents
-* [ ] Identify player-name field
-* [ ] Identify position field
-* [ ] Filter to wide receivers
-* [ ] Filter to one player
-* [ ] Filter to one week
-* [ ] Identify fantasy-relevant statistical columns
-* [ ] Sort/filter data comfortably
+* [x] Create Python virtual environment
+* [x] Configure repository
+* [x] Install initial dependencies
+* [x] Create exploration notebook
+* [x] Load one completed NFL season
+* [x] Inspect dataset type
+* [x] Inspect row/column counts
+* [x] Inspect columns
+* [x] Understand what one row represents
+* [x] Identify player-name field
+* [x] Identify position field
+* [x] Filter to wide receivers
+* [x] Filter to one player
+* [x] Filter to one week
+* [x] Identify fantasy-relevant statistical columns
+* [x] Sort/filter data comfortably
 
 Completion criteria:
 
@@ -651,28 +651,30 @@ The project can be demonstrated through a public URL and explained clearly in an
 
 ## Current Phase
 
-**Phase 1 — NFL Data Fundamentals**
+**Phase 2 — Fantasy Scoring + Data Analysis**
 
 ## Current Status
 
 Repository has been created and cloned locally.
 
-The developer is preparing the initial Python/data environment and deciding how notebooks and scripts should be organized.
+The initial notebook `notebooks/01_explore_data.ipynb` can load 2025 weekly NFL player stats using `nflreadpy`.
+
+The loaded data is a Polars DataFrame. The notebook has inspected the dataset type, shape, and columns; filtered the data to wide receivers; selected fantasy-relevant receiving and rushing columns; filtered to individual WRs such as CeeDee Lamb, Jaxon Smith-Njigba, and Puka Nacua; sorted player rows by targets and fantasy points; and filtered a player to a single week.
+
+The notebook has started a custom `calculated_ppr` column using receptions, receiving yards, receiving TDs, rushing yards, and receiving fumbles lost. This is early Phase 2 work and still needs manual verification against raw stat examples. The formula should also be reviewed against the MVP scoring definition before it becomes trusted reusable logic.
 
 ## Immediate Goal
 
-Get one season of NFL player data successfully loaded and understood in a Jupyter notebook.
+Correctly calculate and verify historical full-PPR fantasy points for WR weekly rows.
 
 ## Current Next Steps
 
-1. Confirm Python environment.
-2. Create `.venv`.
-3. Configure `.gitignore`.
-4. Install initial dependencies.
-5. Create `notebooks/01_explore_data.ipynb`.
-6. Load one completed NFL season.
-7. Inspect the dataset.
-8. Identify WR and fantasy-stat columns.
+1. Review the custom `calculated_ppr` formula against the MVP scoring rules.
+2. Include all intended MVP scoring components: receptions, receiving yards, rushing yards, receiving TDs, rushing TDs, and reliable lost fumbles.
+3. Manually verify several player-week examples by calculating the fantasy points by hand.
+4. Compare `calculated_ppr` with `fantasy_points_ppr` and explain any differences before trusting the custom column.
+5. Rank weekly WR fantasy performances using the verified custom PPR column.
+6. Calculate player season averages after the scoring formula is verified.
 
 ## Currently NOT Working On
 
@@ -882,15 +884,15 @@ Before ending a substantial coding session, a coding assistant should leave this
 
 ## Last Completed Work
 
-Repository setup and planning.
+Created and worked through the initial exploration notebook. The notebook now loads one season of player stats, filters to WRs, selects fantasy-relevant columns, inspects individual WRs, filters a single player-week, and begins calculating custom PPR fantasy points.
 
 ## Work In Progress
 
-Phase 1 environment/data setup.
+Phase 2 fantasy scoring and data analysis.
 
 ## Next Recommended Task
 
-Create the initial Python environment and successfully load/inspect one season of NFL player statistics.
+Finalize and manually verify the full-PPR scoring formula in the notebook before moving on to rankings, season averages, or rolling features.
 
 ## Known Problems / Blockers
 
