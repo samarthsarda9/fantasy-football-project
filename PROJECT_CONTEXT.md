@@ -345,10 +345,10 @@ Tasks:
 * [x] Rank weekly WR fantasy performance
 * [x] Calculate player season averages
 * [x] Calculate rolling 3-game averages
-* [ ] Calculate rolling targets
+* [x] Calculate rolling targets
 * [x] Calculate rolling receiving yards
 * [x] Explore player trends
-* [ ] Create basic visualizations
+* [x] Create basic visualizations
 
 Move stable scoring logic from notebooks into reusable Python functions when appropriate.
 
@@ -665,7 +665,9 @@ The notebook calculates a custom `calculated_ppr` column using the MVP scoring c
 
 The developer compared `calculated_ppr` against nflverse's built-in `fantasy_points_ppr`, created a `ppr_difference` column, and investigated differences. Very small values such as `8.8818e-16` were identified as floating-point precision noise. Larger differences appear to come from scoring categories outside the current MVP formula, especially special teams touchdowns and two-point conversions.
 
-The notebook now calculates player season averages and rolling 3-game averages for WR production. Rolling averages were first calculated for an individual player, then extended to all WRs using `.over("player_display_name")` so values are calculated separately per player. The developer also created prediction-safe previous-3-game rolling features with `.shift(1)` and verified the result with Ja'Marr Chase.
+The notebook now calculates player season averages and rolling 3-game averages for WR production. Rolling averages were first calculated for an individual player, then extended to all WRs using `.over("player_display_name")` so values are calculated separately per player. The developer also created prediction-safe previous-3-game rolling features with `.shift(1)` for PPR, targets, receptions, and receiving yards, and verified the result with Ja'Marr Chase.
+
+The notebook includes basic Phase 2 visualizations with matplotlib: weekly PPR over time for a selected WR, actual PPR versus rolling 3-game average, top WRs by average calculated PPR, and targets versus calculated PPR. It also includes a prediction-safe season-to-date PPR average, `prev_season_avg_ppr`, calculated from previous games only.
 
 ## Immediate Goal
 
@@ -678,7 +680,8 @@ Create the first measurable baseline prediction system.
 3. Compare the baseline prediction against actual `calculated_ppr`.
 4. Calculate absolute error for each prediction.
 5. Calculate baseline Mean Absolute Error (MAE).
-6. Inspect the largest baseline misses to understand where the simple baseline struggles.
+6. Optionally compare a second simple baseline using `prev_season_avg_ppr`.
+7. Inspect the largest baseline misses to understand where the simple baseline struggles.
 
 ## Currently NOT Working On
 
@@ -888,7 +891,7 @@ Before ending a substantial coding session, a coding assistant should leave this
 
 ## Last Completed Work
 
-Created and worked through the initial exploration and fantasy scoring notebook. The notebook now loads one season of player stats, filters to WRs, selects fantasy-relevant columns, inspects individual WRs, filters player-weeks, calculates custom PPR fantasy points, compares against nflverse's built-in PPR values, calculates season averages, and creates both current-week rolling averages and prediction-safe previous-3-game rolling features.
+Created and worked through the initial exploration and fantasy scoring notebook. The notebook now loads one season of player stats, filters to WRs, selects fantasy-relevant columns, inspects individual WRs, filters player-weeks, calculates custom PPR fantasy points, compares against nflverse's built-in PPR values, calculates season averages, creates current-week rolling averages, creates prediction-safe previous-3-game rolling features, creates a prediction-safe season-to-date PPR average, and includes basic matplotlib visualizations.
 
 ## Work In Progress
 
@@ -896,7 +899,7 @@ Phase 3 baseline prediction.
 
 ## Next Recommended Task
 
-Use `prev_rolling_3_ppr` as the first baseline prediction, calculate absolute error, and compute baseline MAE. Do not move to machine learning until this benchmark exists.
+Use `prev_rolling_3_ppr` as the first baseline prediction, calculate absolute error, and compute baseline MAE. Optionally compare it with `prev_season_avg_ppr`. Do not move to machine learning until a baseline benchmark exists.
 
 ## Known Problems / Blockers
 
