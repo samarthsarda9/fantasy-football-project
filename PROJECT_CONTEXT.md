@@ -375,12 +375,12 @@ next_week_prediction =
 
 Tasks:
 
-* [ ] Generate rolling predictions
-* [ ] Ensure predictions use only previous games
-* [ ] Compare predictions against actual results
-* [ ] Calculate absolute error
-* [ ] Calculate Mean Absolute Error (MAE)
-* [ ] Save baseline performance
+* [x] Generate rolling predictions
+* [x] Ensure predictions use only previous games
+* [x] Compare predictions against actual results
+* [x] Calculate absolute error
+* [x] Calculate Mean Absolute Error (MAE)
+* [x] Save baseline performance
 
 Completion criteria:
 
@@ -651,7 +651,7 @@ The project can be demonstrated through a public URL and explained clearly in an
 
 ## Current Phase
 
-**Phase 3 — Baseline Prediction**
+**Phase 4 — First Machine-Learning Model**
 
 ## Current Status
 
@@ -669,19 +669,28 @@ The notebook now calculates player season averages and rolling 3-game averages f
 
 The notebook includes basic Phase 2 visualizations with matplotlib: weekly PPR over time for a selected WR, actual PPR versus rolling 3-game average, top WRs by average calculated PPR, and targets versus calculated PPR. It also includes a prediction-safe season-to-date PPR average, `prev_season_avg_ppr`, calculated from previous games only.
 
+Phase 3 baseline work is now measured and documented in the notebook. `baseline_predictions` uses `prev_rolling_3_ppr` as the primary rolling baseline prediction and `prev_season_avg_ppr` as a second simple comparison baseline. `baseline_prediction_clean` filters out rows without a previous-3-game baseline and excludes postseason rows with `week <= 18`. It calculates `absolute_error` plus `signed_error` for the previous-3-game baseline and absolute/signed errors for the season-to-date baseline.
+
+Current measured baseline results from the notebook:
+
+* Previous-3-game PPR baseline MAE: **4.58 PPR points**
+* Season-to-date PPR baseline MAE: **4.40 PPR points**
+* Evaluation rows: **1,826 WR-week predictions**
+
+The season-to-date baseline is slightly better than the previous-3-game baseline on the current 2025 regular-season WR evaluation set. These results are recorded in notebook markdown. The notebook also notes that many of the largest baseline errors come from WRs who dramatically overperformed expectation with spike weeks, including some lower-profile receivers.
+
 ## Immediate Goal
 
-Create the first measurable baseline prediction system.
+Construct the first ML-ready dataset while preserving temporal validity.
 
 ## Current Next Steps
 
-1. Create a baseline prediction column where `baseline_prediction = prev_rolling_3_ppr`.
-2. Filter out rows where the previous-3-game baseline is null.
-3. Compare the baseline prediction against actual `calculated_ppr`.
-4. Calculate absolute error for each prediction.
-5. Calculate baseline Mean Absolute Error (MAE).
-6. Optionally compare a second simple baseline using `prev_season_avg_ppr`.
-7. Inspect the largest baseline misses to understand where the simple baseline struggles.
+1. Construct an ML-ready WR-week dataset from prediction-safe feature columns.
+2. Use features such as `prev_rolling_3_ppr`, `prev_rolling_3_targets`, `prev_rolling_3_receptions`, `prev_rolling_3_receiving_yards`, and `prev_season_avg_ppr`.
+3. Use `calculated_ppr` as the target.
+4. Drop rows with null prediction features before training/evaluation.
+5. Create a temporal train/test split; do not use a random split.
+6. Train a simple Linear Regression model only after the dataset and split are understood.
 
 ## Currently NOT Working On
 
@@ -885,21 +894,31 @@ Format:
 
 ---
 
+### 2026-08-15 — Baseline benchmark
+
+**Decision:** Keep both simple baselines for comparison, but treat the season-to-date PPR baseline as the stronger benchmark to beat for the first ML model.
+
+**Reason:** On the current 2025 regular-season WR evaluation set, the previous-3-game baseline MAE is 4.58 PPR points, while the season-to-date baseline MAE is 4.40 PPR points.
+
+**Impact:** The first ML model should be compared honestly against both baselines, especially the stronger 4.40 MAE season-to-date benchmark. Do not claim ML improvement unless measured out-of-sample MAE beats the baseline on a proper temporal split.
+
+---
+
 # 15. Session Handoff
 
 Before ending a substantial coding session, a coding assistant should leave this section accurate.
 
 ## Last Completed Work
 
-Created and worked through the initial exploration and fantasy scoring notebook. The notebook now loads one season of player stats, filters to WRs, selects fantasy-relevant columns, inspects individual WRs, filters player-weeks, calculates custom PPR fantasy points, compares against nflverse's built-in PPR values, calculates season averages, creates current-week rolling averages, creates prediction-safe previous-3-game rolling features, creates a prediction-safe season-to-date PPR average, and includes basic matplotlib visualizations.
+Created and worked through the initial exploration, fantasy scoring, and baseline prediction notebook. The notebook now loads one season of player stats, filters to WRs, selects fantasy-relevant columns, inspects individual WRs, filters player-weeks, calculates custom PPR fantasy points, compares against nflverse's built-in PPR values, calculates season averages, creates current-week rolling averages, creates prediction-safe previous-3-game rolling features, creates a prediction-safe season-to-date PPR average, includes basic matplotlib visualizations, measures two simple baseline MAEs, and records the baseline findings in markdown.
 
 ## Work In Progress
 
-Phase 3 baseline prediction.
+Phase 4 first machine-learning model setup.
 
 ## Next Recommended Task
 
-Use `prev_rolling_3_ppr` as the first baseline prediction, calculate absolute error, and compute baseline MAE. Optionally compare it with `prev_season_avg_ppr`. Do not move to machine learning until a baseline benchmark exists.
+Construct the first ML-ready dataset from prediction-safe features and `calculated_ppr` target, then create a temporal train/test split. Do not train a model until the feature/target dataset and split are understood.
 
 ## Known Problems / Blockers
 
