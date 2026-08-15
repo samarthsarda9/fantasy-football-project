@@ -340,14 +340,14 @@ Convert NFL statistics into historical full-PPR fantasy production.
 
 Tasks:
 
-* [ ] Calculate full-PPR points
-* [ ] Manually verify several examples
-* [ ] Rank weekly WR fantasy performance
-* [ ] Calculate player season averages
-* [ ] Calculate rolling 3-game averages
+* [x] Calculate full-PPR points
+* [x] Manually verify several examples
+* [x] Rank weekly WR fantasy performance
+* [x] Calculate player season averages
+* [x] Calculate rolling 3-game averages
 * [ ] Calculate rolling targets
-* [ ] Calculate rolling receiving yards
-* [ ] Explore player trends
+* [x] Calculate rolling receiving yards
+* [x] Explore player trends
 * [ ] Create basic visualizations
 
 Move stable scoring logic from notebooks into reusable Python functions when appropriate.
@@ -651,7 +651,7 @@ The project can be demonstrated through a public URL and explained clearly in an
 
 ## Current Phase
 
-**Phase 2 — Fantasy Scoring + Data Analysis**
+**Phase 3 — Baseline Prediction**
 
 ## Current Status
 
@@ -661,20 +661,24 @@ The initial notebook `notebooks/01_explore_data.ipynb` can load 2025 weekly NFL 
 
 The loaded data is a Polars DataFrame. The notebook has inspected the dataset type, shape, and columns; filtered the data to wide receivers; selected fantasy-relevant receiving and rushing columns; filtered to individual WRs such as CeeDee Lamb, Jaxon Smith-Njigba, and Puka Nacua; sorted player rows by targets and fantasy points; and filtered a player to a single week.
 
-The notebook has started a custom `calculated_ppr` column using receptions, receiving yards, receiving TDs, rushing yards, and receiving fumbles lost. This is early Phase 2 work and still needs manual verification against raw stat examples. The formula should also be reviewed against the MVP scoring definition before it becomes trusted reusable logic.
+The notebook calculates a custom `calculated_ppr` column using the MVP scoring components currently available in the selected columns: receptions, receiving yards, receiving TDs, rushing yards, rushing TDs, receiving fumbles lost, and rushing fumbles lost.
+
+The developer compared `calculated_ppr` against nflverse's built-in `fantasy_points_ppr`, created a `ppr_difference` column, and investigated differences. Very small values such as `8.8818e-16` were identified as floating-point precision noise. Larger differences appear to come from scoring categories outside the current MVP formula, especially special teams touchdowns and two-point conversions.
+
+The notebook now calculates player season averages and rolling 3-game averages for WR production. Rolling averages were first calculated for an individual player, then extended to all WRs using `.over("player_display_name")` so values are calculated separately per player. The developer also created prediction-safe previous-3-game rolling features with `.shift(1)` and verified the result with Ja'Marr Chase.
 
 ## Immediate Goal
 
-Correctly calculate and verify historical full-PPR fantasy points for WR weekly rows.
+Create the first measurable baseline prediction system.
 
 ## Current Next Steps
 
-1. Review the custom `calculated_ppr` formula against the MVP scoring rules.
-2. Include all intended MVP scoring components: receptions, receiving yards, rushing yards, receiving TDs, rushing TDs, and reliable lost fumbles.
-3. Manually verify several player-week examples by calculating the fantasy points by hand.
-4. Compare `calculated_ppr` with `fantasy_points_ppr` and explain any differences before trusting the custom column.
-5. Rank weekly WR fantasy performances using the verified custom PPR column.
-6. Calculate player season averages after the scoring formula is verified.
+1. Create a baseline prediction column where `baseline_prediction = prev_rolling_3_ppr`.
+2. Filter out rows where the previous-3-game baseline is null.
+3. Compare the baseline prediction against actual `calculated_ppr`.
+4. Calculate absolute error for each prediction.
+5. Calculate baseline Mean Absolute Error (MAE).
+6. Inspect the largest baseline misses to understand where the simple baseline struggles.
 
 ## Currently NOT Working On
 
@@ -884,15 +888,15 @@ Before ending a substantial coding session, a coding assistant should leave this
 
 ## Last Completed Work
 
-Created and worked through the initial exploration notebook. The notebook now loads one season of player stats, filters to WRs, selects fantasy-relevant columns, inspects individual WRs, filters a single player-week, and begins calculating custom PPR fantasy points.
+Created and worked through the initial exploration and fantasy scoring notebook. The notebook now loads one season of player stats, filters to WRs, selects fantasy-relevant columns, inspects individual WRs, filters player-weeks, calculates custom PPR fantasy points, compares against nflverse's built-in PPR values, calculates season averages, and creates both current-week rolling averages and prediction-safe previous-3-game rolling features.
 
 ## Work In Progress
 
-Phase 2 fantasy scoring and data analysis.
+Phase 3 baseline prediction.
 
 ## Next Recommended Task
 
-Finalize and manually verify the full-PPR scoring formula in the notebook before moving on to rankings, season averages, or rolling features.
+Use `prev_rolling_3_ppr` as the first baseline prediction, calculate absolute error, and compute baseline MAE. Do not move to machine learning until this benchmark exists.
 
 ## Known Problems / Blockers
 
