@@ -413,17 +413,17 @@ Initial model:
 
 Tasks:
 
-* [ ] Construct ML-ready dataset
-* [ ] Understand features (`X`)
-* [ ] Understand target (`y`)
-* [ ] Create temporal train/test split
-* [ ] Prevent data leakage
-* [ ] Train Linear Regression
-* [ ] Generate predictions
-* [ ] Calculate MAE
-* [ ] Compare against baseline
-* [ ] Inspect errors
-* [ ] Document findings
+* [x] Construct ML-ready dataset
+* [x] Understand features (`X`)
+* [x] Understand target (`y`)
+* [x] Create temporal train/test split
+* [x] Prevent data leakage
+* [x] Train Linear Regression
+* [x] Generate predictions
+* [x] Calculate MAE
+* [x] Compare against baseline
+* [x] Inspect errors
+* [x] Document findings
 
 Important:
 
@@ -651,7 +651,7 @@ The project can be demonstrated through a public URL and explained clearly in an
 
 ## Current Phase
 
-**Phase 4 — First Machine-Learning Model**
+**Phase 5 — Improve the Model**
 
 ## Current Status
 
@@ -671,36 +671,42 @@ The notebook includes basic Phase 2 visualizations with matplotlib: weekly PPR o
 
 Phase 3 baseline work is now measured and documented in the notebook. `baseline_predictions` uses `prev_rolling_3_ppr` as the primary rolling baseline prediction and `prev_season_avg_ppr` as a second simple comparison baseline. `baseline_prediction_clean` filters out rows without a previous-3-game baseline and excludes postseason rows with `week <= 18`. It calculates `absolute_error` plus `signed_error` for the previous-3-game baseline and absolute/signed errors for the season-to-date baseline.
 
-Current measured baseline results from the notebook:
+Current measured baseline results from the notebook on the Weeks 15-18 test window:
 
-* Previous-3-game PPR baseline MAE: **4.58 PPR points**
-* Season-to-date PPR baseline MAE: **4.40 PPR points**
-* Evaluation rows: **1,826 WR-week predictions**
+* Previous-3-game PPR baseline MAE: **4.47 PPR points**
+* Season-to-date PPR baseline MAE: **4.27 PPR points**
 
-The season-to-date baseline is slightly better than the previous-3-game baseline on the current 2025 regular-season WR evaluation set. These results are recorded in notebook markdown. The notebook also notes that many of the largest baseline errors come from WRs who dramatically overperformed expectation with spike weeks, including some lower-profile receivers.
+The season-to-date baseline is slightly better than the previous-3-game baseline on the current 2025 regular-season WR test set. These results are recorded in notebook markdown. The notebook also notes that many of the largest baseline errors come from WRs who dramatically overperformed expectation with spike weeks, including some lower-profile receivers.
+
+Phase 4 Linear Regression work is now complete in the notebook. The ML-ready dataset uses prediction-safe features (`prev_rolling_3_ppr`, `prev_rolling_3_targets`, `prev_rolling_3_receptions`, `prev_rolling_3_receiving_yards`, and `prev_season_avg_ppr`) and `calculated_ppr` as the target. The notebook uses a temporal split, training on Weeks 4-14 and testing on Weeks 15-18.
+
+Current measured Linear Regression result:
+
+* Linear Regression MAE on Weeks 15-18: **4.23 PPR points**
+
+The Linear Regression model slightly beats both simple baselines on the same Weeks 15-18 test set, but the improvement over the stronger season-to-date baseline is very small: **0.04 PPR points**. Error inspection suggests the model still struggles with random spike weeks, especially when players significantly outperform recent and season-to-date usage averages.
 
 ## Immediate Goal
 
-Construct the first ML-ready dataset while preserving temporal validity.
+Improve or harden the first model without adding unnecessary complexity.
 
 ## Current Next Steps
 
-1. Construct an ML-ready WR-week dataset from prediction-safe feature columns.
-2. Use features such as `prev_rolling_3_ppr`, `prev_rolling_3_targets`, `prev_rolling_3_receptions`, `prev_rolling_3_receiving_yards`, and `prev_season_avg_ppr`.
-3. Use `calculated_ppr` as the target.
-4. Drop rows with null prediction features before training/evaluation.
-5. Create a temporal train/test split; do not use a random split.
-6. Train a simple Linear Regression model only after the dataset and split are understood.
+1. Review whether the notebook should explicitly filter `season_type == "REG"` instead of relying on `week <= 18`.
+2. Inspect Linear Regression coefficients to understand what the model learned.
+3. Consider one small feature improvement at a time, such as target volume or target share if already reliable in the data.
+4. Re-evaluate every change on the same Weeks 15-18 test split and compare against the 4.27 season-to-date baseline and 4.23 Linear Regression result.
+5. Avoid advanced models until the current Linear Regression result is understood and documented.
 
 ## Currently NOT Working On
 
-* Machine learning
 * FastAPI
 * OpenAI Agents SDK
 * Frontend
 * AWS
 * Database
 * Multi-agent systems
+* Advanced model families such as Random Forest or Gradient Boosting
 
 These should not be introduced yet unless explicitly requested.
 
@@ -898,9 +904,19 @@ Format:
 
 **Decision:** Keep both simple baselines for comparison, but treat the season-to-date PPR baseline as the stronger benchmark to beat for the first ML model.
 
-**Reason:** On the current 2025 regular-season WR evaluation set, the previous-3-game baseline MAE is 4.58 PPR points, while the season-to-date baseline MAE is 4.40 PPR points.
+**Reason:** On the Weeks 15-18 test split, the previous-3-game baseline MAE is 4.47 PPR points, while the season-to-date baseline MAE is 4.27 PPR points.
 
-**Impact:** The first ML model should be compared honestly against both baselines, especially the stronger 4.40 MAE season-to-date benchmark. Do not claim ML improvement unless measured out-of-sample MAE beats the baseline on a proper temporal split.
+**Impact:** The first ML model should be compared honestly against both baselines, especially the stronger 4.27 MAE season-to-date benchmark. Do not claim ML improvement unless measured out-of-sample MAE beats the baseline on a proper temporal split.
+
+---
+
+### 2026-08-15 — First Linear Regression result
+
+**Decision:** Use Linear Regression as the first ML model and evaluate it with a temporal split: train on Weeks 4-14 and test on Weeks 15-18.
+
+**Reason:** Linear Regression is simple, explainable, and appropriate as the first model after baseline evaluation.
+
+**Impact:** The first Linear Regression model achieved **4.23 MAE** on Weeks 15-18, slightly beating the season-to-date baseline of **4.27 MAE**. The improvement is real for this measured split but very small, so it should be described cautiously. Error inspection shows that random spike performances remain a major failure mode.
 
 ---
 
@@ -910,15 +926,15 @@ Before ending a substantial coding session, a coding assistant should leave this
 
 ## Last Completed Work
 
-Created and worked through the initial exploration, fantasy scoring, and baseline prediction notebook. The notebook now loads one season of player stats, filters to WRs, selects fantasy-relevant columns, inspects individual WRs, filters player-weeks, calculates custom PPR fantasy points, compares against nflverse's built-in PPR values, calculates season averages, creates current-week rolling averages, creates prediction-safe previous-3-game rolling features, creates a prediction-safe season-to-date PPR average, includes basic matplotlib visualizations, measures two simple baseline MAEs, and records the baseline findings in markdown.
+Created and worked through the initial exploration, fantasy scoring, baseline prediction, and first Linear Regression notebook. The notebook now loads one season of player stats, filters to WRs, selects fantasy-relevant columns, inspects individual WRs, filters player-weeks, calculates custom PPR fantasy points, compares against nflverse's built-in PPR values, calculates season averages, creates current-week rolling averages, creates prediction-safe previous-3-game rolling features, creates a prediction-safe season-to-date PPR average, includes basic matplotlib visualizations, measures two simple baseline MAEs, constructs an ML-ready dataset, trains Linear Regression with a temporal split, evaluates MAE, compares against baselines, and documents model error patterns.
 
 ## Work In Progress
 
-Phase 4 first machine-learning model setup.
+Phase 5 model improvement / hardening.
 
 ## Next Recommended Task
 
-Construct the first ML-ready dataset from prediction-safe features and `calculated_ppr` target, then create a temporal train/test split. Do not train a model until the feature/target dataset and split are understood.
+Inspect Linear Regression coefficients, clean up any remaining evaluation assumptions such as regular-season filtering, and consider one small feature improvement at a time. Re-evaluate every change against the same Weeks 15-18 baselines.
 
 ## Known Problems / Blockers
 
