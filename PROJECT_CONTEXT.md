@@ -690,21 +690,44 @@ A cleaned notebook, `notebooks/02_clean_pipeline.ipynb`, has been created from t
 
 Reusable scoring code has been started in `src/scoring.py`. It defines `calculate_ppr(df: pl.DataFrame) -> pl.DataFrame`, which adds a rounded `calculated_ppr` column using the current MVP scoring formula. `notebooks/02_clean_pipeline.ipynb` now imports and uses this function instead of duplicating the scoring formula inline.
 
-A first test file, `tests/test_scoring.py`, has been created, but it currently prints the scored DataFrame rather than asserting expected results. It should be converted into a true pass/fail test before moving more logic out of notebooks.
+`tests/test_scoring.py` now contains assertion-based checks for `calculate_ppr` and can be run with `PYTHONPATH=. python tests/test_scoring.py`.
+
+A new multi-season notebook, `notebooks/03_further_engineering.ipynb`, has been started for Phase 5 model hardening. It loads 2021-2025 weekly player stats, filters to regular-season WR rows using `season_type == "REG"`, calculates custom PPR with the reusable scoring function, and rebuilds rolling and season-to-date features across multiple seasons.
+
+Current multi-season feature design:
+
+* Rolling 3-game features (`prev_rolling_3_ppr`, targets, receptions, receiving yards) intentionally carry across season boundaries by grouping over `player_display_name`. This lets early-season rows use the player's most recent available NFL games, including the prior season.
+* Season-to-date features such as `prev_season_avg_ppr` reset each season by grouping over `["player_display_name", "season"]`.
+* All prediction features use `.shift(1)` so the current week's result is not included in that row's feature values.
+
+The multi-season notebook now uses a cleaner out-of-sample evaluation split:
+
+* Train: seasons before 2025
+* Test: 2025 regular season
+
+Current measured 2025 test results from `notebooks/03_further_engineering.ipynb`:
+
+* Previous-3-game rolling baseline MAE: **4.58 PPR points**
+* Season-to-date baseline MAE: **4.40 PPR points**
+* Linear Regression MAE: **4.41 PPR points**
+
+On this multi-season split, Linear Regression is roughly tied with the season-to-date baseline and slightly worse than it by about **0.01 PPR points**. This should be described as no meaningful improvement, not as a model win.
+
+Reusable feature code has been started in `src/features.py`, but it currently needs cleanup before it should be treated as trusted production logic. The intended behavior should mirror the multi-season notebook: rolling features carry across seasons, while season-to-date averages reset by player-season.
 
 ## Immediate Goal
 
-Prepare the stable notebook logic for reusable Python scripts without adding unnecessary complexity.
+Finish hardening the multi-season feature/evaluation pipeline, then move the trusted feature logic into reusable Python code without adding unnecessary complexity.
 
 ## Current Next Steps
 
-1. Use `notebooks/02_clean_pipeline.ipynb` as the current clean reference notebook.
-2. Convert `tests/test_scoring.py` into a true assertion-based test for `calculate_ppr`.
-3. Add or confirm `.gitignore` coverage for Python cache files such as `__pycache__/`.
-4. When moving data-loading logic to scripts, explicitly filter `season_type == "REG"` instead of relying on `week <= 18`.
-5. Move prediction-safe feature engineering into reusable code after the scoring function is tested.
-6. Keep re-evaluating changes against the same Weeks 15-18 baselines and Linear Regression result.
-7. Avoid advanced models until the current Linear Regression result is understood and the pipeline is reusable.
+1. Treat `notebooks/03_further_engineering.ipynb` as the current Phase 5 modeling notebook.
+2. Clean up `src/features.py` so `create_features()` returns the transformed Polars DataFrame directly and matches the notebook's feature behavior.
+3. Add a small test for `create_features()` that verifies shifted rolling features and season-to-date features behave as expected.
+4. Add or confirm `.gitignore` coverage for Python cache files such as `__pycache__/`.
+5. Add RMSE next to MAE for baseline and Linear Regression evaluation.
+6. Only after the multi-season Linear Regression pipeline is stable, compare one additional simple model such as Random Forest on the same 2025 test set.
+7. Avoid FastAPI, agents, frontend, and deployment work until the modeling pipeline is reusable and documented.
 
 ## Currently NOT Working On
 
@@ -928,29 +951,47 @@ Format:
 
 ---
 
+### 2026-08-17 — Multi-season evaluation and feature reset behavior
+
+**Decision:** Expand model experimentation to 2021-2025 data, filter regular-season rows with `season_type == "REG"`, train on seasons before 2025, and test on the 2025 regular season.
+
+**Reason:** A single 2025 season and a Weeks 15-18 test window produced a fragile metric. Training on prior seasons and testing on 2025 is a clearer out-of-sample evaluation.
+
+**Impact:** Current multi-season 2025 test metrics are: previous-3-game rolling baseline MAE **4.58**, season-to-date baseline MAE **4.40**, and Linear Regression MAE **4.41**. Linear Regression is roughly tied with, but does not meaningfully beat, the stronger season-to-date baseline on this split.
+
+**Decision:** Rolling 3-game features carry across season boundaries, while season-to-date averages reset within each player-season.
+
+**Reason:** Rolling features represent a player's most recent available NFL games, which can be useful for early-season predictions. Season-to-date averages should represent only the current season, so they must reset each year.
+
+**Impact:** Feature engineering should sort by `["player_display_name", "season", "week"]`. Rolling 3-game features should group by `player_display_name`; season-to-date features should group by `["player_display_name", "season"]`. All prediction features must remain shifted to avoid using the current week's result.
+
+---
+
 # 15. Session Handoff
 
 Before ending a substantial coding session, a coding assistant should leave this section accurate.
 
 ## Last Completed Work
 
-Created and worked through the initial exploration, fantasy scoring, baseline prediction, and first Linear Regression notebook. The notebook now loads one season of player stats, filters to WRs, selects fantasy-relevant columns, inspects individual WRs, filters player-weeks, calculates custom PPR fantasy points, compares against nflverse's built-in PPR values, calculates season averages, creates current-week rolling averages, creates prediction-safe previous-3-game rolling features, creates a prediction-safe season-to-date PPR average, includes basic matplotlib visualizations, measures two simple baseline MAEs, constructs an ML-ready dataset, trains Linear Regression with a temporal split, evaluates MAE, compares against baselines, and documents model error patterns.
+Created and worked through the initial exploration, fantasy scoring, baseline prediction, and first Linear Regression notebooks. The project now has a single-season clean pipeline notebook and a newer multi-season Phase 5 notebook.
 
-Created `notebooks/02_clean_pipeline.ipynb` as a cleaner end-to-end reference notebook with markdown sections and the current working pipeline.
+Created `notebooks/02_clean_pipeline.ipynb` as a cleaner end-to-end reference notebook with markdown sections for the original working pipeline.
 
-Started productionizing stable scoring logic by creating `src/scoring.py` with `calculate_ppr`. The clean pipeline notebook now imports that function. A first `tests/test_scoring.py` exists, but it still needs real assertions.
+Started `notebooks/03_further_engineering.ipynb` to use 2021-2025 data, regular-season filtering, multi-season feature engineering, and a train-before-2025/test-2025 evaluation.
+
+Productionized stable scoring logic by creating `src/scoring.py` with `calculate_ppr`. The clean pipeline notebook imports that function. `tests/test_scoring.py` now has assertion-based checks and has been run successfully with `PYTHONPATH=. python tests/test_scoring.py`.
 
 ## Work In Progress
 
-Phase 5 model improvement / hardening, with a transition toward reusable pipeline code.
+Phase 5 model improvement / hardening, with a transition toward reusable feature engineering code.
 
 ## Next Recommended Task
 
-Turn `tests/test_scoring.py` into an assertion-based test for `calculate_ppr`, then run it with `PYTHONPATH=. python tests/test_scoring.py`. After scoring is tested, continue moving feature engineering into reusable code and include explicit regular-season filtering when data-loading logic is scripted.
+Fix `src/features.py` so `create_features()` returns the transformed DataFrame directly and mirrors the current notebook behavior: rolling 3-game features carry across seasons, season-to-date averages reset by player-season, and all prediction features are shifted. Then add a small feature test before moving on to RMSE or Random Forest comparison.
 
 ## Known Problems / Blockers
 
-None currently recorded.
+`src/features.py` is not yet trusted reusable logic. Its current structure wraps a DataFrame transformation inside `df.with_columns(...)`; it should instead directly return the sorted DataFrame with feature columns added.
 
 ---
 
