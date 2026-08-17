@@ -688,6 +688,10 @@ The Linear Regression model slightly beats both simple baselines on the same Wee
 
 A cleaned notebook, `notebooks/02_clean_pipeline.ipynb`, has been created from the original exploration notebook. It organizes the current working flow with markdown sections for data loading, WR filtering, PPR scoring, feature engineering, baseline evaluation, ML-ready dataset construction, Linear Regression training/evaluation, error inspection, and coefficient inspection. This notebook is the best current reference for the end-to-end experimental pipeline.
 
+Reusable scoring code has been started in `src/scoring.py`. It defines `calculate_ppr(df: pl.DataFrame) -> pl.DataFrame`, which adds a rounded `calculated_ppr` column using the current MVP scoring formula. `notebooks/02_clean_pipeline.ipynb` now imports and uses this function instead of duplicating the scoring formula inline.
+
+A first test file, `tests/test_scoring.py`, has been created, but it currently prints the scored DataFrame rather than asserting expected results. It should be converted into a true pass/fail test before moving more logic out of notebooks.
+
 ## Immediate Goal
 
 Prepare the stable notebook logic for reusable Python scripts without adding unnecessary complexity.
@@ -695,11 +699,12 @@ Prepare the stable notebook logic for reusable Python scripts without adding unn
 ## Current Next Steps
 
 1. Use `notebooks/02_clean_pipeline.ipynb` as the current clean reference notebook.
-2. When moving to scripts, explicitly filter `season_type == "REG"` instead of relying on `week <= 18`.
-3. Move stable PPR scoring logic into a small reusable Python function.
-4. Move prediction-safe feature engineering into reusable code after the scoring function is clear.
-5. Keep re-evaluating changes against the same Weeks 15-18 baselines and Linear Regression result.
-6. Avoid advanced models until the current Linear Regression result is understood and the pipeline is reusable.
+2. Convert `tests/test_scoring.py` into a true assertion-based test for `calculate_ppr`.
+3. Add or confirm `.gitignore` coverage for Python cache files such as `__pycache__/`.
+4. When moving data-loading logic to scripts, explicitly filter `season_type == "REG"` instead of relying on `week <= 18`.
+5. Move prediction-safe feature engineering into reusable code after the scoring function is tested.
+6. Keep re-evaluating changes against the same Weeks 15-18 baselines and Linear Regression result.
+7. Avoid advanced models until the current Linear Regression result is understood and the pipeline is reusable.
 
 ## Currently NOT Working On
 
@@ -933,13 +938,15 @@ Created and worked through the initial exploration, fantasy scoring, baseline pr
 
 Created `notebooks/02_clean_pipeline.ipynb` as a cleaner end-to-end reference notebook with markdown sections and the current working pipeline.
 
+Started productionizing stable scoring logic by creating `src/scoring.py` with `calculate_ppr`. The clean pipeline notebook now imports that function. A first `tests/test_scoring.py` exists, but it still needs real assertions.
+
 ## Work In Progress
 
 Phase 5 model improvement / hardening, with a transition toward reusable pipeline code.
 
 ## Next Recommended Task
 
-Start moving stable logic from `notebooks/02_clean_pipeline.ipynb` into reusable Python scripts. Begin with the full-PPR scoring function, and include explicit regular-season filtering when data-loading logic is scripted.
+Turn `tests/test_scoring.py` into an assertion-based test for `calculate_ppr`, then run it with `PYTHONPATH=. python tests/test_scoring.py`. After scoring is tested, continue moving feature engineering into reusable code and include explicit regular-season filtering when data-loading logic is scripted.
 
 ## Known Problems / Blockers
 
