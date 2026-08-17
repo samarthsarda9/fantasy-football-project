@@ -686,17 +686,20 @@ Current measured Linear Regression result:
 
 The Linear Regression model slightly beats both simple baselines on the same Weeks 15-18 test set, but the improvement over the stronger season-to-date baseline is very small: **0.04 PPR points**. Error inspection suggests the model still struggles with random spike weeks, especially when players significantly outperform recent and season-to-date usage averages.
 
+A cleaned notebook, `notebooks/02_clean_pipeline.ipynb`, has been created from the original exploration notebook. It organizes the current working flow with markdown sections for data loading, WR filtering, PPR scoring, feature engineering, baseline evaluation, ML-ready dataset construction, Linear Regression training/evaluation, error inspection, and coefficient inspection. This notebook is the best current reference for the end-to-end experimental pipeline.
+
 ## Immediate Goal
 
-Improve or harden the first model without adding unnecessary complexity.
+Prepare the stable notebook logic for reusable Python scripts without adding unnecessary complexity.
 
 ## Current Next Steps
 
-1. Review whether the notebook should explicitly filter `season_type == "REG"` instead of relying on `week <= 18`.
-2. Inspect Linear Regression coefficients to understand what the model learned.
-3. Consider one small feature improvement at a time, such as target volume or target share if already reliable in the data.
-4. Re-evaluate every change on the same Weeks 15-18 test split and compare against the 4.27 season-to-date baseline and 4.23 Linear Regression result.
-5. Avoid advanced models until the current Linear Regression result is understood and documented.
+1. Use `notebooks/02_clean_pipeline.ipynb` as the current clean reference notebook.
+2. When moving to scripts, explicitly filter `season_type == "REG"` instead of relying on `week <= 18`.
+3. Move stable PPR scoring logic into a small reusable Python function.
+4. Move prediction-safe feature engineering into reusable code after the scoring function is clear.
+5. Keep re-evaluating changes against the same Weeks 15-18 baselines and Linear Regression result.
+6. Avoid advanced models until the current Linear Regression result is understood and the pipeline is reusable.
 
 ## Currently NOT Working On
 
@@ -928,13 +931,15 @@ Before ending a substantial coding session, a coding assistant should leave this
 
 Created and worked through the initial exploration, fantasy scoring, baseline prediction, and first Linear Regression notebook. The notebook now loads one season of player stats, filters to WRs, selects fantasy-relevant columns, inspects individual WRs, filters player-weeks, calculates custom PPR fantasy points, compares against nflverse's built-in PPR values, calculates season averages, creates current-week rolling averages, creates prediction-safe previous-3-game rolling features, creates a prediction-safe season-to-date PPR average, includes basic matplotlib visualizations, measures two simple baseline MAEs, constructs an ML-ready dataset, trains Linear Regression with a temporal split, evaluates MAE, compares against baselines, and documents model error patterns.
 
+Created `notebooks/02_clean_pipeline.ipynb` as a cleaner end-to-end reference notebook with markdown sections and the current working pipeline.
+
 ## Work In Progress
 
-Phase 5 model improvement / hardening.
+Phase 5 model improvement / hardening, with a transition toward reusable pipeline code.
 
 ## Next Recommended Task
 
-Inspect Linear Regression coefficients, clean up any remaining evaluation assumptions such as regular-season filtering, and consider one small feature improvement at a time. Re-evaluate every change against the same Weeks 15-18 baselines.
+Start moving stable logic from `notebooks/02_clean_pipeline.ipynb` into reusable Python scripts. Begin with the full-PPR scoring function, and include explicit regular-season filtering when data-loading logic is scripted.
 
 ## Known Problems / Blockers
 
