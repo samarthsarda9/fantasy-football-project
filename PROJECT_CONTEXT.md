@@ -707,13 +707,13 @@ The multi-season notebook now uses a cleaner out-of-sample evaluation split:
 
 Current measured 2025 test results from `notebooks/03_further_engineering.ipynb`:
 
-* Previous-3-game rolling baseline MAE: **4.58 PPR points**
-* Season-to-date baseline MAE: **4.40 PPR points**
-* Linear Regression MAE: **4.41 PPR points**
+* Previous-3-game rolling baseline: **4.56 MAE**, **6.41 RMSE**
+* Season-to-date baseline: **4.45 MAE**, **6.27 RMSE**
+* Linear Regression: **4.40 MAE**, **5.99 RMSE**
 
-On this multi-season split, Linear Regression is roughly tied with the season-to-date baseline and slightly worse than it by about **0.01 PPR points**. This should be described as no meaningful improvement, not as a model win.
+On this multi-season split, Linear Regression modestly improves MAE over the stronger season-to-date baseline by about **0.05 PPR points** and improves RMSE by about **0.28 PPR points**. This is a real measured improvement on the current 2025 test split, but it should still be described cautiously because the gain is small.
 
-Reusable feature code has been started in `src/features.py`, but it currently needs cleanup before it should be treated as trusted production logic. The intended behavior should mirror the multi-season notebook: rolling features carry across seasons, while season-to-date averages reset by player-season.
+Reusable feature code has been started in `src/features.py`. It defines `create_features(df: pl.DataFrame) -> pl.DataFrame`, which mirrors the multi-season notebook behavior: rolling features carry across seasons, while season-to-date averages reset by player-season.
 
 ## Immediate Goal
 
@@ -722,11 +722,11 @@ Finish hardening the multi-season feature/evaluation pipeline, then move the tru
 ## Current Next Steps
 
 1. Treat `notebooks/03_further_engineering.ipynb` as the current Phase 5 modeling notebook.
-2. Clean up `src/features.py` so `create_features()` returns the transformed Polars DataFrame directly and matches the notebook's feature behavior.
-3. Add a small test for `create_features()` that verifies shifted rolling features and season-to-date features behave as expected.
+2. Add a compact metrics comparison table in the notebook showing MAE and RMSE for the rolling baseline, season-to-date baseline, and Linear Regression on the same 2025 test rows.
+3. Add a small test for `create_features()` that verifies shifted rolling features and season-to-date features behave as expected, if not already committed.
 4. Add or confirm `.gitignore` coverage for Python cache files such as `__pycache__/`.
-5. Add RMSE next to MAE for baseline and Linear Regression evaluation.
-6. Only after the multi-season Linear Regression pipeline is stable, compare one additional simple model such as Random Forest on the same 2025 test set.
+5. Compare one additional simple model, Random Forest, on the same 2025 test set and against the same baseline metrics.
+6. Inspect whether Random Forest improves large-error spike weeks or simply overfits noisy WR outcomes.
 7. Avoid FastAPI, agents, frontend, and deployment work until the modeling pipeline is reusable and documented.
 
 ## Currently NOT Working On
@@ -957,7 +957,7 @@ Format:
 
 **Reason:** A single 2025 season and a Weeks 15-18 test window produced a fragile metric. Training on prior seasons and testing on 2025 is a clearer out-of-sample evaluation.
 
-**Impact:** Current multi-season 2025 test metrics are: previous-3-game rolling baseline MAE **4.58**, season-to-date baseline MAE **4.40**, and Linear Regression MAE **4.41**. Linear Regression is roughly tied with, but does not meaningfully beat, the stronger season-to-date baseline on this split.
+**Impact:** Current multi-season 2025 test metrics are: previous-3-game rolling baseline **4.56 MAE / 6.41 RMSE**, season-to-date baseline **4.45 MAE / 6.27 RMSE**, and Linear Regression **4.40 MAE / 5.99 RMSE**. Linear Regression modestly beats the stronger season-to-date baseline on this split, especially on RMSE, but the improvement should still be described cautiously.
 
 **Decision:** Rolling 3-game features carry across season boundaries, while season-to-date averages reset within each player-season.
 
@@ -981,17 +981,19 @@ Started `notebooks/03_further_engineering.ipynb` to use 2021-2025 data, regular-
 
 Productionized stable scoring logic by creating `src/scoring.py` with `calculate_ppr`. The clean pipeline notebook imports that function. `tests/test_scoring.py` now has assertion-based checks and has been run successfully with `PYTHONPATH=. python tests/test_scoring.py`.
 
+Created reusable feature engineering logic in `src/features.py` with `create_features`. The Phase 5 notebook now imports that function instead of duplicating feature logic inline. RMSE has been added next to MAE for the rolling baseline, season-to-date baseline, and Linear Regression.
+
 ## Work In Progress
 
 Phase 5 model improvement / hardening, with a transition toward reusable feature engineering code.
 
 ## Next Recommended Task
 
-Fix `src/features.py` so `create_features()` returns the transformed DataFrame directly and mirrors the current notebook behavior: rolling 3-game features carry across seasons, season-to-date averages reset by player-season, and all prediction features are shifted. Then add a small feature test before moving on to RMSE or Random Forest comparison.
+Add a compact metrics comparison table to `notebooks/03_further_engineering.ipynb`, then compare `RandomForestRegressor` against the rolling baseline, season-to-date baseline, and Linear Regression on the same 2025 test rows.
 
 ## Known Problems / Blockers
 
-`src/features.py` is not yet trusted reusable logic. Its current structure wraps a DataFrame transformation inside `df.with_columns(...)`; it should instead directly return the sorted DataFrame with feature columns added.
+None currently recorded.
 
 ---
 
