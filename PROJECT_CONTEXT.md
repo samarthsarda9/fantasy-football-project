@@ -709,9 +709,20 @@ Current measured 2025 test results from `notebooks/03_further_engineering.ipynb`
 
 * Previous-3-game rolling baseline: **4.56 MAE**, **6.41 RMSE**
 * Season-to-date baseline: **4.45 MAE**, **6.27 RMSE**
-* Linear Regression: **4.40 MAE**, **5.99 RMSE**
+* Linear Regression before defensive receiving-yards feature: **4.40 MAE**, **5.99 RMSE**
+* Random Forest before defensive receiving-yards feature: **4.50 MAE**, **6.14 RMSE**
+* Linear Regression with `prev_defense_wr_yds_allowed_avg`: **4.39 MAE**, **6.00 RMSE**
+* Random Forest with `prev_defense_wr_yds_allowed_avg`: **4.46 MAE**, **6.11 RMSE**
+* Linear Regression with `prev_defense_wr_yds_allowed_avg` and `prev_defense_wr_ppr_allowed_avg`: **4.39 MAE**, **6.00 RMSE**
+* Random Forest with `prev_defense_wr_yds_allowed_avg` and `prev_defense_wr_ppr_allowed_avg`: **4.45 MAE**, **6.10 RMSE**
 
 On this multi-season split, Linear Regression modestly improves MAE over the stronger season-to-date baseline by about **0.05 PPR points** and improves RMSE by about **0.28 PPR points**. This is a real measured improvement on the current 2025 test split, but it should still be described cautiously because the gain is small.
+
+Random Forest was tested as the first comparison model using the same 2025 test rows. It performed worse than Linear Regression on both MAE and RMSE, so Linear Regression remains the preferred current model. Random Forest error inspection showed a similar failure pattern to Linear Regression: many of the largest misses came from receivers who dramatically outperformed expectation in spike weeks. Random Forest feature importance ranked `prev_season_avg_ppr` as the most important feature by a wide margin.
+
+The first opponent defensive strength feature, `prev_defense_wr_yds_allowed_avg`, was added in the notebook. It measures each opponent defense's prior season-to-date average receiving yards allowed to WRs, shifted so the current week's results are not included. It produced only a tiny Linear Regression MAE improvement and did not improve RMSE, so it should be treated as a mild/neutral feature rather than a major breakthrough.
+
+A second opponent defensive strength feature, `prev_defense_wr_ppr_allowed_avg`, was added. It measures each opponent defense's prior season-to-date average PPR points allowed to WRs. It did not meaningfully improve Linear Regression beyond the yards-allowed defensive feature. Linear Regression coefficients for both defensive features are very small, while Random Forest feature importance uses both defensive features somewhat but still does not outperform Linear Regression overall.
 
 Reusable feature code has been started in `src/features.py`. It defines `create_features(df: pl.DataFrame) -> pl.DataFrame`, which mirrors the multi-season notebook behavior: rolling features carry across seasons, while season-to-date averages reset by player-season.
 
@@ -722,11 +733,11 @@ Finish hardening the multi-season feature/evaluation pipeline, then move the tru
 ## Current Next Steps
 
 1. Treat `notebooks/03_further_engineering.ipynb` as the current Phase 5 modeling notebook.
-2. Add a compact metrics comparison table in the notebook showing MAE and RMSE for the rolling baseline, season-to-date baseline, and Linear Regression on the same 2025 test rows.
+2. Add concise notebook markdown interpreting the defensive feature results.
 3. Add a small test for `create_features()` that verifies shifted rolling features and season-to-date features behave as expected, if not already committed.
 4. Add or confirm `.gitignore` coverage for Python cache files such as `__pycache__/`.
-5. Compare one additional simple model, Random Forest, on the same 2025 test set and against the same baseline metrics.
-6. Inspect whether Random Forest improves large-error spike weeks or simply overfits noisy WR outcomes.
+5. Decide whether to keep both defensive features, keep only one, or remove them before productionizing the feature pipeline.
+6. Consider one more simple feature only if it has a clear football rationale and can be created without a new data source.
 7. Avoid FastAPI, agents, frontend, and deployment work until the modeling pipeline is reusable and documented.
 
 ## Currently NOT Working On
@@ -967,6 +978,36 @@ Format:
 
 ---
 
+### 2026-08-19 — Random Forest comparison
+
+**Decision:** Keep Linear Regression as the preferred current model after testing Random Forest.
+
+**Reason:** Random Forest was trained and evaluated on the same 2025 test rows as Linear Regression and the baselines. It produced **4.50 MAE / 6.14 RMSE**, while Linear Regression produced **4.40 MAE / 5.99 RMSE**.
+
+**Impact:** Do not switch to Random Forest for the MVP unless later feature work changes the measured comparison. With the current feature set, the more flexible model does not generalize better than Linear Regression. Error inspection shows Random Forest still struggles with unexpected receiver spike weeks.
+
+---
+
+### 2026-08-19 — Opponent WR receiving yards allowed feature
+
+**Decision:** Add `prev_defense_wr_yds_allowed_avg` as the first opponent defensive strength feature.
+
+**Reason:** The project already has `opponent_team` and `receiving_yards`, making it possible to calculate each defense's prior season-to-date average receiving yards allowed to WRs without adding a new data source.
+
+**Impact:** On the 2025 test rows, Linear Regression changed from **4.40 MAE / 5.99 RMSE** to **4.39 MAE / 6.00 RMSE**. Random Forest changed from **4.50 MAE / 6.14 RMSE** to **4.46 MAE / 6.11 RMSE**. The feature is safe and reasonable, but the Linear Regression improvement is very small. Next, test prior WR PPR allowed because it is more directly aligned with the target.
+
+---
+
+### 2026-08-19 — Opponent WR PPR allowed feature
+
+**Decision:** Add `prev_defense_wr_ppr_allowed_avg` as a second opponent defensive strength feature.
+
+**Reason:** The target is PPR points, so prior WR PPR allowed is more directly aligned with the model target than receiving yards allowed alone.
+
+**Impact:** With both defensive features, Linear Regression measured **4.39 MAE / 6.00 RMSE**, essentially unchanged from using yards allowed alone. Random Forest measured **4.45 MAE / 6.10 RMSE**, slightly better than its previous defensive-feature result but still worse than Linear Regression. Defensive features are currently safe and interpretable, but they are not major drivers of model improvement.
+
+---
+
 # 15. Session Handoff
 
 Before ending a substantial coding session, a coding assistant should leave this section accurate.
@@ -983,13 +1024,19 @@ Productionized stable scoring logic by creating `src/scoring.py` with `calculate
 
 Created reusable feature engineering logic in `src/features.py` with `create_features`. The Phase 5 notebook now imports that function instead of duplicating feature logic inline. RMSE has been added next to MAE for the rolling baseline, season-to-date baseline, and Linear Regression.
 
+Added Random Forest as the first comparison model in `notebooks/03_further_engineering.ipynb`. The model performed worse than Linear Regression on the same 2025 test rows, and error inspection showed similar spike-week misses.
+
+Added `prev_defense_wr_yds_allowed_avg`, a prediction-safe opponent defensive strength feature based on prior WR receiving yards allowed. It produced only a tiny Linear Regression MAE improvement and did not improve Linear Regression RMSE.
+
+Added `prev_defense_wr_ppr_allowed_avg`, a prediction-safe opponent defensive strength feature based on prior WR PPR allowed. It did not meaningfully improve Linear Regression beyond the receiving-yards defensive feature. Current best model remains Linear Regression.
+
 ## Work In Progress
 
-Phase 5 model improvement / hardening, with a transition toward reusable feature engineering code.
+Phase 5 model improvement / hardening. Defensive-strength feature experiments are now measured and need a short notebook interpretation.
 
 ## Next Recommended Task
 
-Add a compact metrics comparison table to `notebooks/03_further_engineering.ipynb`, then compare `RandomForestRegressor` against the rolling baseline, season-to-date baseline, and Linear Regression on the same 2025 test rows.
+Add concise markdown in `notebooks/03_further_engineering.ipynb` interpreting the defensive feature results, then decide whether both defensive features are worth keeping in the eventual reusable feature pipeline.
 
 ## Known Problems / Blockers
 
