@@ -726,6 +726,8 @@ A second opponent defensive strength feature, `prev_defense_wr_ppr_allowed_avg`,
 
 Reusable feature code has been started in `src/features.py`. It defines `create_features(df: pl.DataFrame) -> pl.DataFrame`, which mirrors the multi-season notebook behavior: rolling features carry across seasons, while season-to-date averages reset by player-season.
 
+`src/features.py` also now includes `create_defensive_features(df: pl.DataFrame) -> pl.DataFrame`, which adds a prediction-safe `prev_defense_wr_ppr_allowed_avg` feature. `tests/test_features.py` has been expanded and passes checks for rolling player features, season-to-date reset behavior, defensive PPR allowed shifting, and the defensive feature join.
+
 ## Immediate Goal
 
 Finish hardening the multi-season feature/evaluation pipeline, then move the trusted feature logic into reusable Python code without adding unnecessary complexity.
@@ -733,12 +735,11 @@ Finish hardening the multi-season feature/evaluation pipeline, then move the tru
 ## Current Next Steps
 
 1. Treat `notebooks/03_further_engineering.ipynb` as the current Phase 5 modeling notebook.
-2. Add concise notebook markdown interpreting the defensive feature results.
-3. Add a small test for `create_features()` that verifies shifted rolling features and season-to-date features behave as expected, if not already committed.
-4. Add or confirm `.gitignore` coverage for Python cache files such as `__pycache__/`.
-5. Decide whether to keep both defensive features, keep only one, or remove them before productionizing the feature pipeline.
-6. Consider one more simple feature only if it has a clear football rationale and can be created without a new data source.
-7. Avoid FastAPI, agents, frontend, and deployment work until the modeling pipeline is reusable and documented.
+2. Decide whether to keep both defensive features, keep only `prev_defense_wr_ppr_allowed_avg`, or remove defensive features before productionizing the feature pipeline.
+3. Add or confirm `.gitignore` coverage for Python cache files such as `__pycache__/`.
+4. Start moving stable dataset construction, train/test splitting, and metric evaluation into reusable Python code.
+5. Consider one more simple feature only if it has a clear football rationale and can be created without a new data source.
+6. Avoid FastAPI, agents, frontend, and deployment work until the modeling pipeline is reusable and documented.
 
 ## Currently NOT Working On
 
@@ -1030,13 +1031,15 @@ Added `prev_defense_wr_yds_allowed_avg`, a prediction-safe opponent defensive st
 
 Added `prev_defense_wr_ppr_allowed_avg`, a prediction-safe opponent defensive strength feature based on prior WR PPR allowed. It did not meaningfully improve Linear Regression beyond the receiving-yards defensive feature. Current best model remains Linear Regression.
 
+Added notebook markdown interpreting the defensive feature results. Expanded feature tests now pass for player rolling features, season-to-date reset behavior, defensive PPR allowed shifting, and defensive feature joining.
+
 ## Work In Progress
 
-Phase 5 model improvement / hardening. Defensive-strength feature experiments are now measured and need a short notebook interpretation.
+Phase 5 model improvement / hardening. Defensive-strength feature experiments are measured and documented; the next decision is which defensive feature(s) to keep before productionizing the modeling pipeline.
 
 ## Next Recommended Task
 
-Add concise markdown in `notebooks/03_further_engineering.ipynb` interpreting the defensive feature results, then decide whether both defensive features are worth keeping in the eventual reusable feature pipeline.
+Decide whether to keep both defensive features, keep only `prev_defense_wr_ppr_allowed_avg`, or drop defensive features before moving stable dataset construction and model evaluation into reusable Python code.
 
 ## Known Problems / Blockers
 

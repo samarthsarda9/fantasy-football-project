@@ -55,3 +55,48 @@ def create_features(df: pl.DataFrame) -> pl.DataFrame:
             .alias("prev_season_avg_ppr")
         )
     )
+
+def create_defensive_features(df: pl.DataFrame) -> pl.DataFrame:
+    """
+    Creates defensive features for the given DataFrame. Specifically, it calculates the average PPR points 
+    allowed by each defense to wide receivers in previous weeks of the same season.
+
+    Parameters:
+    df (pl.DataFrame): Input DataFrame containing player statistics.
+
+    Returns:
+    pl.DataFrame: Original DataFrame with a new column containing the average PPR points allowed
+    """
+    defense_week_wr_ppr_allowed = (
+        df
+        .group_by(["season", "week", "opponent_team"])
+        .agg(
+            pl.col("calculated_ppr")
+            .sum()
+            .alias("wr_ppr_allowed")
+        )
+        .sort(["opponent_team", "season", "week"])
+    )
+    defense_week_wr_ppr_allowed = (
+        defense_week_wr_ppr_allowed
+        .with_columns(
+            (
+                pl.col("wr_ppr_allowed").shift(1).cum_sum().over(["opponent_team", "season"])
+                /
+                pl.col("wr_ppr_allowed").shift(1).cum_count().over(["opponent_team", "season"])
+            )
+            .round(2)
+            .alias("prev_defense_wr_ppr_allowed_avg")
+        )
+    )
+    df = df.join(
+        defense_week_wr_ppr_allowed.select([
+            "season",
+            "week",
+            "opponent_team",
+            "prev_defense_wr_ppr_allowed_avg",
+        ]),
+        on=["season", "week", "opponent_team"],
+        how="left",
+    )
+    return df
