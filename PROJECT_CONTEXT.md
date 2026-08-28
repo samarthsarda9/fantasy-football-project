@@ -728,6 +728,8 @@ Reusable feature code has been started in `src/features.py`. It defines `create_
 
 `src/features.py` also now includes `create_defensive_features(df: pl.DataFrame) -> pl.DataFrame`, which adds a prediction-safe `prev_defense_wr_ppr_allowed_avg` feature. `tests/test_features.py` has been expanded and passes checks for rolling player features, season-to-date reset behavior, defensive PPR allowed shifting, and the defensive feature join.
 
+The project will keep `prev_defense_wr_ppr_allowed_avg` as the MVP defensive feature and exclude `prev_defense_wr_yds_allowed_avg` from the main model feature list for now. `src/modeling.py` has been started with shared model constants, `make_train_test_data()`, and `train_linear_regression()`.
+
 ## Immediate Goal
 
 Finish hardening the multi-season feature/evaluation pipeline, then move the trusted feature logic into reusable Python code without adding unnecessary complexity.
@@ -735,10 +737,10 @@ Finish hardening the multi-season feature/evaluation pipeline, then move the tru
 ## Current Next Steps
 
 1. Treat `notebooks/03_further_engineering.ipynb` as the current Phase 5 modeling notebook.
-2. Decide whether to keep both defensive features, keep only `prev_defense_wr_ppr_allowed_avg`, or remove defensive features before productionizing the feature pipeline.
+2. Update the notebook to use `FEATURE_COLUMNS` and `train_linear_regression()` from `src/modeling.py` where appropriate.
 3. Add or confirm `.gitignore` coverage for Python cache files such as `__pycache__/`.
-4. Start moving stable dataset construction, train/test splitting, and metric evaluation into reusable Python code.
-5. Consider one more simple feature only if it has a clear football rationale and can be created without a new data source.
+4. Add reusable metric evaluation helpers in `src/modeling.py`.
+5. Add tests for `make_train_test_data()` and metric evaluation helpers.
 6. Avoid FastAPI, agents, frontend, and deployment work until the modeling pipeline is reusable and documented.
 
 ## Currently NOT Working On
@@ -1009,6 +1011,16 @@ Format:
 
 ---
 
+### 2026-08-27 — MVP model feature set decision
+
+**Decision:** Keep `prev_defense_wr_ppr_allowed_avg` as the MVP defensive feature and leave `prev_defense_wr_yds_allowed_avg` out of the main model feature list.
+
+**Reason:** The target is PPR points, so prior WR PPR allowed is more directly aligned with the prediction target than receiving yards allowed. Keeping both defensive features added complexity without meaningful Linear Regression improvement.
+
+**Impact:** `src/modeling.py` should use `prev_defense_wr_ppr_allowed_avg` in `FEATURE_COLUMNS` and should not include `prev_defense_wr_yds_allowed_avg` unless a later measured experiment supports bringing it back.
+
+---
+
 # 15. Session Handoff
 
 Before ending a substantial coding session, a coding assistant should leave this section accurate.
@@ -1033,13 +1045,15 @@ Added `prev_defense_wr_ppr_allowed_avg`, a prediction-safe opponent defensive st
 
 Added notebook markdown interpreting the defensive feature results. Expanded feature tests now pass for player rolling features, season-to-date reset behavior, defensive PPR allowed shifting, and defensive feature joining.
 
+Decided to keep only `prev_defense_wr_ppr_allowed_avg` as the MVP defensive feature. Started `src/modeling.py` with `FEATURE_COLUMNS`, `TARGET_COLUMN`, `TEST_SEASON`, `make_train_test_data()`, and `train_linear_regression()`.
+
 ## Work In Progress
 
-Phase 5 model improvement / hardening. Defensive-strength feature experiments are measured and documented; the next decision is which defensive feature(s) to keep before productionizing the modeling pipeline.
+Phase 5 model improvement / hardening. Modeling logic is being moved from the notebook into reusable Python code.
 
 ## Next Recommended Task
 
-Decide whether to keep both defensive features, keep only `prev_defense_wr_ppr_allowed_avg`, or drop defensive features before moving stable dataset construction and model evaluation into reusable Python code.
+Update `notebooks/03_further_engineering.ipynb` to use the constants and Linear Regression helper from `src/modeling.py`, then add reusable evaluation helpers and tests for the modeling module.
 
 ## Known Problems / Blockers
 
