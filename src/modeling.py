@@ -1,6 +1,8 @@
 import polars as pl
 from sklearn.metrics import mean_absolute_error, root_mean_squared_error
 import numpy as np
+import joblib
+from pathlib import Path
 
 FEATURE_COLUMNS = [
     "prev_rolling_3_ppr",
@@ -13,6 +15,7 @@ FEATURE_COLUMNS = [
 
 TARGET_COLUMN = "calculated_ppr"
 TEST_SEASON = 2025
+DEFAULT_MODEL_PATH = Path("models/linear_regression.joblib")
 
 def make_train_test_data(
     dataset: pl.DataFrame,
@@ -81,3 +84,27 @@ def train_linear_regression(df: pl.DataFrame):
     mae, rmse = evaluate_predictions(y_test, y_pred)
 
     return model, mae, rmse
+
+def save_model(model, path: Path = DEFAULT_MODEL_PATH) -> None:
+    """
+    Saves a trained model to disk so it can be reused without retraining.
+
+    Parameters:
+    model: A trained scikit-learn model (e.g. from train_linear_regression()).
+    path (Path): File path to save the model to. Parent directories are created if needed.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(model, path)
+
+def load_model(path: Path = DEFAULT_MODEL_PATH):
+    """
+    Loads a previously saved model from disk.
+
+    Parameters:
+    path (Path): File path to load the model from.
+
+    Returns:
+    A trained scikit-learn model.
+    """
+    return joblib.load(Path(path))

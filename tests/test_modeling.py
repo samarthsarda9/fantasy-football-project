@@ -1,6 +1,9 @@
-from src.modeling import make_train_test_data, evaluate_predictions
+from src.modeling import make_train_test_data, evaluate_predictions, save_model, load_model
 import polars as pl
 import numpy as np
+import tempfile
+from pathlib import Path
+from sklearn.linear_model import LinearRegression
 
 
 def test_make_train_test_data_splits_by_season():
@@ -40,7 +43,28 @@ def test_evaluate_predictions():
     assert rmse == round((8 / 3) ** 0.5, 2)
 
 
+def test_save_and_load_model_roundtrip():
+    X_train = np.array([[1.0], [2.0], [3.0], [4.0]])
+    y_train = np.array([2.0, 4.0, 6.0, 8.0])
+
+    model = LinearRegression()
+    model.fit(X_train, y_train)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        model_path = Path(tmp_dir) / "nested" / "model.joblib"
+        save_model(model, model_path)
+
+        assert model_path.exists()
+
+        loaded_model = load_model(model_path)
+        original_predictions = model.predict(X_train)
+        loaded_predictions = loaded_model.predict(X_train)
+
+        assert list(original_predictions) == list(loaded_predictions)
+
+
 if __name__ == "__main__":
     test_make_train_test_data_splits_by_season()
     test_evaluate_predictions()
+    test_save_and_load_model_roundtrip()
     print("All modeling tests passed.")

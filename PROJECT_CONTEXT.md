@@ -487,10 +487,10 @@ Tasks:
 * [x] Move scoring logic into scripts
 * [x] Move feature engineering into scripts
 * [x] Move model training into scripts
-* [ ] Create reusable prediction function
-* [ ] Save/load trained model
+* [x] Create reusable prediction function
+* [x] Save/load trained model
 * [x] Add meaningful tests
-* [ ] Reduce notebook duplication
+* [x] Reduce notebook duplication
 
 Completion criteria:
 
@@ -651,9 +651,9 @@ The project can be demonstrated through a public URL and explained clearly in an
 
 ## Current Phase
 
-**Phase 6 — Productionize Python Code**
+**Phase 7 — FastAPI Backend**
 
-Phase 5 is complete. All five Phase 5 tasks are checked off: features were added incrementally with re-evaluation after each change, Linear Regression and Random Forest were compared on identical 2025 test rows, Linear Regression was selected as the final MVP model, and final baseline/model metrics are recorded below and in the Major Decisions Log.
+Phase 6 is complete. All eight Phase 6 tasks are checked off: data loading, scoring, feature engineering, and model training all live in tested `src/` modules; a reusable single-player prediction function and model persistence (save/load) exist; and the notebook's manual MAE/RMSE calculations were replaced with `evaluate_predictions()`.
 
 ## Current Status
 
@@ -744,15 +744,16 @@ Phase 5 is now considered complete. Linear Regression is the final MVP model wit
 
 ## Immediate Goal
 
-Continue Phase 6: turn the remaining notebook-only logic (single-player prediction, model persistence) into reusable, tested Python code, without adding unnecessary complexity.
+Begin Phase 7: expose player data and Linear Regression projections over a FastAPI backend, using the existing `src/` modules rather than duplicating their logic.
 
 ## Current Next Steps
 
-1. Build a reusable single-player prediction function that takes a trained model plus a player's most recent rows and returns a projection, so a projection can be generated without running the research notebook.
-2. Add save/load support for the trained Linear Regression model (e.g. with `joblib`) so training does not need to be repeated to get a prediction.
-3. Reduce remaining notebook duplication: cells 10-13 in `notebooks/03_further_engineering.ipynb` still compute baseline MAE/RMSE by hand with Polars expressions instead of using `evaluate_predictions()`.
-4. Add tests for the new prediction function once it exists.
-5. Continue avoiding FastAPI, agents, frontend, and deployment work until Phase 6's reusable prediction pipeline is in place.
+1. Create a minimal FastAPI application (e.g. `src/api.py` or `app/main.py`) with a health-check route to confirm the app runs.
+2. Expose a route (e.g. `GET /players/{player_id}` or by display name) that returns a player's recent stats, backed by `src/data.py` and `src/features.py`.
+3. Expose a projection route (e.g. `GET /predictions/{player_id}`) backed by `src/modeling.py` (`load_model()`) and `src/predict.py` (`predict_next_week_ppr`).
+4. Handle the unknown-player case cleanly (e.g. 404) rather than letting `get_latest_player_row`'s `ValueError` bubble up as a 500.
+5. Add API tests (e.g. with FastAPI's `TestClient`).
+6. Continue avoiding the Agents SDK, frontend, and deployment work until the FastAPI layer works end to end.
 
 ## Currently NOT Working On
 
@@ -1052,6 +1053,36 @@ Format:
 
 ---
 
+### 2026-08-29 — Reusable single-player prediction function
+
+**Decision:** Add `src/predict.py` with `get_latest_player_row`, `predict_player_projection`, and `predict_next_week_ppr`, so a single player's projection can be generated from a trained model and the computed feature table without re-running the research notebook.
+
+**Reason:** Phase 6's goal is a reusable prediction path; the model-training code already existed in `src/modeling.py`, but nothing took a trained model plus a player's features and returned one projection.
+
+**Impact:** `tests/test_predict.py` covers the row-lookup and prediction logic using a stub model, independent of scikit-learn. The notebook now demonstrates the real path end to end: `predict_next_week_ppr(model, dataset, "CeeDee Lamb")` returns **15.08** projected PPR points using the trained Linear Regression model. Model persistence (save/load) is still needed before this can run outside the notebook without retraining.
+
+---
+
+### 2026-08-29 — Model persistence with joblib
+
+**Decision:** Add `save_model()`/`load_model()` to `src/modeling.py` using `joblib`, saving to `models/linear_regression.joblib` by default. The `models/` directory is gitignored since it holds a regenerable binary artifact, not source.
+
+**Reason:** Phase 6 requires that a projection can be generated without retraining. `scikit-learn`/`joblib`/`scipy` were already installed and used by `src/modeling.py`'s existing training code but had never been added to `requirements.txt`; this was fixed as part of this change so the file accurately reflects the project's real dependencies.
+
+**Impact:** `tests/test_modeling.py` covers a save/load roundtrip with a temp directory. The notebook now saves the trained model to `models/linear_regression.joblib` (path anchored to `project_root`, not notebook cwd) and reloads it into a fresh `loaded_model` variable; predicting CeeDee Lamb's projection from the reloaded model reproduced the same **15.08** result as the in-memory model. `requirements.txt` now includes `scikit-learn`, `joblib`, and `scipy`.
+
+---
+
+### 2026-08-29 — Phase 6 closed out
+
+**Decision:** Replace the manual Polars baseline MAE/RMSE calculations in `notebooks/03_further_engineering.ipynb` with `evaluate_predictions()`, mark Phase 6 complete, and move Current Phase to Phase 7 — FastAPI Backend.
+
+**Reason:** This was the last outstanding Phase 6 task. The manual calculations (four cells computing rolling and season-to-date baseline MAE/RMSE by hand) duplicated logic already tested in `src/modeling.py`.
+
+**Impact:** The four manual cells were consolidated into two cells that call `evaluate_predictions()` against a `test_2025` slice of `dataset`; the unused intermediate `absolute_error`/`season_avg_error`/`baseline_prediction*` columns were removed from `baseline_prediction_clean`/`dataset` since nothing downstream referenced them. Re-ran the full notebook end to end from a clean kernel; all metrics reproduced exactly: rolling baseline **4.56 MAE / 6.41 RMSE**, season-to-date baseline **4.45 MAE / 6.27 RMSE**, Linear Regression **4.39 MAE / 6.00 RMSE**, Random Forest **4.46 MAE / 6.12 RMSE**, and the CeeDee Lamb prediction/persistence demo still returned **15.08**. Phase 7 work should build a FastAPI app on top of `src/data.py`, `src/features.py`, `src/modeling.py`, and `src/predict.py` as-is, without duplicating their logic.
+
+---
+
 # 15. Session Handoff
 
 Before ending a substantial coding session, a coding assistant should leave this section accurate.
@@ -1088,13 +1119,19 @@ Marked all five Phase 5 tasks complete and moved Current Phase to Phase 6 — Pr
 
 Created `src/data.py` with `load_weekly_stats`, `filter_wr_regular_season`, and `load_wr_weekly_stats`, mirroring the notebook's prior inline data-loading/filtering cells. Added `tests/test_data.py` covering `filter_wr_regular_season` with an in-memory frame (no network call needed). Updated `notebooks/03_further_engineering.ipynb` to import and call `load_wr_weekly_stats(...)` instead of duplicating the load/filter logic, and consolidated the repeated `project_root`/`sys.path.append` boilerplate into the first cell. Re-ran the notebook end to end from a clean kernel; all metrics reproduced exactly.
 
+Created `src/predict.py` with `get_latest_player_row`, `predict_player_projection`, and `predict_next_week_ppr`. Added `tests/test_predict.py` covering the lookup/prediction logic with a stub model. Added a demo cell at the end of `notebooks/03_further_engineering.ipynb` that calls `predict_next_week_ppr(model, dataset, "CeeDee Lamb")` using the real trained Linear Regression model; it returned **15.08** projected PPR points. Re-ran the notebook end to end and confirmed all prior metrics were unchanged.
+
+Added `save_model()`/`load_model()` to `src/modeling.py` using `joblib`, saving to `models/linear_regression.joblib` (gitignored). Added `tests/test_modeling.py` coverage for the save/load roundtrip. Fixed `requirements.txt`, which was missing `scikit-learn`, `joblib`, and `scipy` even though they were already installed and used. Added a final notebook cell that saves the trained model, reloads it into `loaded_model`, and re-predicts CeeDee Lamb's projection from the reloaded model — reproduced the same **15.08** result, confirming the model can be reused without retraining.
+
+Replaced the four manual Polars baseline MAE/RMSE cells in `notebooks/03_further_engineering.ipynb` with two cells using `evaluate_predictions()`, and removed the now-unused `absolute_error`/`season_avg_error`/`baseline_prediction*` intermediate columns. Re-ran the notebook end to end from a clean kernel; all metrics reproduced exactly. This closed out Phase 6. Moved Current Phase to Phase 7 — FastAPI Backend.
+
 ## Work In Progress
 
-Phase 6 — Productionize Python Code. `src/data.py`, `src/scoring.py`, `src/features.py`, and `src/modeling.py` now hold reusable, tested logic for data loading, scoring, feature engineering, and model training/evaluation. Remaining Phase 6 work is the single-player prediction function and model persistence.
+Phase 7 — FastAPI Backend. No API code exists yet. `src/data.py`, `src/scoring.py`, `src/features.py`, `src/modeling.py`, and `src/predict.py` hold all the reusable, tested logic (data loading, scoring, feature engineering, model training/evaluation, single-player prediction, model persistence) that the API should be built on top of.
 
 ## Next Recommended Task
 
-Build a reusable single-player prediction function that takes a trained model plus a player's most recent rows and returns a projection, then add save/load support for the trained model (e.g. with `joblib`).
+Create a minimal FastAPI application with a health-check route, then add a route that returns a player's projection using `load_model()` (from `src/modeling.py`) and `predict_next_week_ppr()` (from `src/predict.py`).
 
 ## Known Problems / Blockers
 
