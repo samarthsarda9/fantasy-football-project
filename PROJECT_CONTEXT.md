@@ -483,13 +483,13 @@ Turn notebook experiments into reusable application code.
 
 Tasks:
 
-* [ ] Move stable data-loading logic into scripts
-* [ ] Move scoring logic into scripts
-* [ ] Move feature engineering into scripts
-* [ ] Move model training into scripts
+* [x] Move stable data-loading logic into scripts
+* [x] Move scoring logic into scripts
+* [x] Move feature engineering into scripts
+* [x] Move model training into scripts
 * [ ] Create reusable prediction function
 * [ ] Save/load trained model
-* [ ] Add meaningful tests
+* [x] Add meaningful tests
 * [ ] Reduce notebook duplication
 
 Completion criteria:
@@ -744,16 +744,15 @@ Phase 5 is now considered complete. Linear Regression is the final MVP model wit
 
 ## Immediate Goal
 
-Begin Phase 6: turn the remaining notebook-only logic (data loading, single-player prediction, model persistence) into reusable, tested Python code, without adding unnecessary complexity.
+Continue Phase 6: turn the remaining notebook-only logic (single-player prediction, model persistence) into reusable, tested Python code, without adding unnecessary complexity.
 
 ## Current Next Steps
 
-1. Move data-loading logic (`nfl.load_player_stats(...)` + WR/regular-season filtering) out of the notebook and into a small reusable function, e.g. in a new `src/data.py`.
-2. Build a reusable single-player prediction function that takes a trained model plus a player's most recent rows and returns a projection, so a projection can be generated without running the research notebook.
-3. Add save/load support for the trained Linear Regression model (e.g. with `joblib`) so training does not need to be repeated to get a prediction.
-4. Reduce remaining notebook duplication: cells 10-13 in `notebooks/03_further_engineering.ipynb` still compute baseline MAE/RMSE by hand with Polars expressions instead of using `evaluate_predictions()`.
-5. Add tests for any new data-loading or prediction functions.
-6. Continue avoiding FastAPI, agents, frontend, and deployment work until Phase 6's reusable prediction pipeline is in place.
+1. Build a reusable single-player prediction function that takes a trained model plus a player's most recent rows and returns a projection, so a projection can be generated without running the research notebook.
+2. Add save/load support for the trained Linear Regression model (e.g. with `joblib`) so training does not need to be repeated to get a prediction.
+3. Reduce remaining notebook duplication: cells 10-13 in `notebooks/03_further_engineering.ipynb` still compute baseline MAE/RMSE by hand with Polars expressions instead of using `evaluate_predictions()`.
+4. Add tests for the new prediction function once it exists.
+5. Continue avoiding FastAPI, agents, frontend, and deployment work until Phase 6's reusable prediction pipeline is in place.
 
 ## Currently NOT Working On
 
@@ -1043,6 +1042,16 @@ Format:
 
 ---
 
+### 2026-08-29 — Data loading moved into src/data.py
+
+**Decision:** Extract the notebook's `nfl.load_player_stats(...)` call plus WR/regular-season filtering and column selection into `src/data.py` (`load_weekly_stats`, `filter_wr_regular_season`, `load_wr_weekly_stats`).
+
+**Reason:** This logic was still duplicated inline in `notebooks/03_further_engineering.ipynb` and had no test coverage; splitting the network fetch from the pure filter/select step makes the filtering logic testable without hitting `nflreadpy`.
+
+**Impact:** `notebooks/03_further_engineering.ipynb` now calls `load_wr_weekly_stats([...])` instead of duplicating the filter/select logic. `tests/test_data.py` covers `filter_wr_regular_season` against a small in-memory frame. Re-ran the notebook end to end and confirmed metrics are unchanged: Linear Regression **4.39 MAE / 6.00 RMSE**, Random Forest **4.46 MAE / 6.12 RMSE**, rolling baseline **4.56 MAE / 6.41 RMSE**, season-to-date baseline **4.45 MAE / 6.27 RMSE**.
+
+---
+
 # 15. Session Handoff
 
 Before ending a substantial coding session, a coding assistant should leave this section accurate.
@@ -1077,13 +1086,15 @@ Added `evaluate_predictions(y_true, y_pred)` to `src/modeling.py`, a rounded MAE
 
 Marked all five Phase 5 tasks complete and moved Current Phase to Phase 6 — Productionize Python Code.
 
+Created `src/data.py` with `load_weekly_stats`, `filter_wr_regular_season`, and `load_wr_weekly_stats`, mirroring the notebook's prior inline data-loading/filtering cells. Added `tests/test_data.py` covering `filter_wr_regular_season` with an in-memory frame (no network call needed). Updated `notebooks/03_further_engineering.ipynb` to import and call `load_wr_weekly_stats(...)` instead of duplicating the load/filter logic, and consolidated the repeated `project_root`/`sys.path.append` boilerplate into the first cell. Re-ran the notebook end to end from a clean kernel; all metrics reproduced exactly.
+
 ## Work In Progress
 
-Phase 6 — Productionize Python Code. `src/scoring.py`, `src/features.py`, and `src/modeling.py` already hold reusable, tested logic for scoring, feature engineering, and model training/evaluation. Remaining Phase 6 work is data loading, single-player prediction, and model persistence.
+Phase 6 — Productionize Python Code. `src/data.py`, `src/scoring.py`, `src/features.py`, and `src/modeling.py` now hold reusable, tested logic for data loading, scoring, feature engineering, and model training/evaluation. Remaining Phase 6 work is the single-player prediction function and model persistence.
 
 ## Next Recommended Task
 
-Move the notebook's data-loading/filtering logic (`nfl.load_player_stats(...)` + WR/regular-season filtering) into a small `src/data.py` function, then build a reusable single-player prediction function on top of the saved/trained model.
+Build a reusable single-player prediction function that takes a trained model plus a player's most recent rows and returns a projection, then add save/load support for the trained model (e.g. with `joblib`).
 
 ## Known Problems / Blockers
 
