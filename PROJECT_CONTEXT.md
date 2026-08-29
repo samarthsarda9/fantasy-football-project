@@ -461,11 +461,11 @@ Potential additional models:
 
 Tasks:
 
-* [ ] Add features incrementally
-* [ ] Re-evaluate after important feature changes
-* [ ] Compare models on identical test data
-* [ ] Select final MVP model
-* [ ] Record final baseline and model metrics
+* [x] Add features incrementally
+* [x] Re-evaluate after important feature changes
+* [x] Compare models on identical test data
+* [x] Select final MVP model
+* [x] Record final baseline and model metrics
 
 Completion criteria:
 
@@ -651,7 +651,9 @@ The project can be demonstrated through a public URL and explained clearly in an
 
 ## Current Phase
 
-**Phase 5 — Improve the Model**
+**Phase 6 — Productionize Python Code**
+
+Phase 5 is complete. All five Phase 5 tasks are checked off: features were added incrementally with re-evaluation after each change, Linear Regression and Random Forest were compared on identical 2025 test rows, Linear Regression was selected as the final MVP model, and final baseline/model metrics are recorded below and in the Major Decisions Log.
 
 ## Current Status
 
@@ -730,18 +732,28 @@ Reusable feature code has been started in `src/features.py`. It defines `create_
 
 The project will keep `prev_defense_wr_ppr_allowed_avg` as the MVP defensive feature and exclude `prev_defense_wr_yds_allowed_avg` from the main model feature list for now. `src/modeling.py` has been started with shared model constants, `make_train_test_data()`, and `train_linear_regression()`.
 
+`notebooks/03_further_engineering.ipynb` now imports `FEATURE_COLUMNS`, `TARGET_COLUMN`, `make_train_test_data()`, and `train_linear_regression()` from `src/modeling.py` instead of duplicating the Linear Regression setup entirely inline. The notebook was re-run end to end from a clean kernel and reproduced the same metrics: Linear Regression **4.39 MAE / 6.00 RMSE**, Random Forest **4.46 MAE / 6.12 RMSE**, rolling baseline **4.56 MAE / 6.41 RMSE**, season-to-date baseline **4.45 MAE / 6.27 RMSE**.
+
+`.gitignore` already covers `__pycache__/` and `.venv`, so no change was needed there.
+
+`src/modeling.py` now also defines `evaluate_predictions(y_true, y_pred) -> tuple[float, float]`, a thin wrapper around `sklearn`'s `mean_absolute_error`/`root_mean_squared_error` that rounds both to 2 decimals. `train_linear_regression()` uses it instead of computing MAE/RMSE inline, so the printed Linear Regression metrics are now rounded (`4.39` / `6.0`) instead of full-precision floats, matching the rounding already used elsewhere in the notebook.
+
+`tests/test_modeling.py` is new and checks that `make_train_test_data()` splits rows by season correctly (train = seasons before the test season, test = the test season, correct column selection and row alignment) and that `evaluate_predictions()` computes MAE/RMSE correctly against hand-calculated values. All three test scripts (`test_scoring.py`, `test_features.py`, `test_modeling.py`) pass.
+
+Phase 5 is now considered complete. Linear Regression is the final MVP model with `FEATURE_COLUMNS` = previous-3-game rolling PPR/targets/receptions/receiving-yards, previous season-to-date PPR average, and `prev_defense_wr_ppr_allowed_avg`.
+
 ## Immediate Goal
 
-Finish hardening the multi-season feature/evaluation pipeline, then move the trusted feature logic into reusable Python code without adding unnecessary complexity.
+Begin Phase 6: turn the remaining notebook-only logic (data loading, single-player prediction, model persistence) into reusable, tested Python code, without adding unnecessary complexity.
 
 ## Current Next Steps
 
-1. Treat `notebooks/03_further_engineering.ipynb` as the current Phase 5 modeling notebook.
-2. Update the notebook to use `FEATURE_COLUMNS` and `train_linear_regression()` from `src/modeling.py` where appropriate.
-3. Add or confirm `.gitignore` coverage for Python cache files such as `__pycache__/`.
-4. Add reusable metric evaluation helpers in `src/modeling.py`.
-5. Add tests for `make_train_test_data()` and metric evaluation helpers.
-6. Avoid FastAPI, agents, frontend, and deployment work until the modeling pipeline is reusable and documented.
+1. Move data-loading logic (`nfl.load_player_stats(...)` + WR/regular-season filtering) out of the notebook and into a small reusable function, e.g. in a new `src/data.py`.
+2. Build a reusable single-player prediction function that takes a trained model plus a player's most recent rows and returns a projection, so a projection can be generated without running the research notebook.
+3. Add save/load support for the trained Linear Regression model (e.g. with `joblib`) so training does not need to be repeated to get a prediction.
+4. Reduce remaining notebook duplication: cells 10-13 in `notebooks/03_further_engineering.ipynb` still compute baseline MAE/RMSE by hand with Polars expressions instead of using `evaluate_predictions()`.
+5. Add tests for any new data-loading or prediction functions.
+6. Continue avoiding FastAPI, agents, frontend, and deployment work until Phase 6's reusable prediction pipeline is in place.
 
 ## Currently NOT Working On
 
@@ -1021,6 +1033,16 @@ Format:
 
 ---
 
+### 2026-08-29 — Phase 5 closed out
+
+**Decision:** Mark Phase 5 complete and move to Phase 6. Final MVP model is Linear Regression with `FEATURE_COLUMNS` from `src/modeling.py`, evaluated on the 2025 regular season test split.
+
+**Reason:** All Phase 5 tasks (incremental features, re-evaluation, model comparison, model selection, final metrics) were already satisfied by prior sessions; this session verified reproducibility by re-running `notebooks/03_further_engineering.ipynb` end to end from a clean kernel and confirming the metrics matched previously recorded values exactly.
+
+**Impact:** Final recorded 2025 test metrics: Linear Regression **4.39 MAE / 6.00 RMSE**, Random Forest **4.46 MAE / 6.12 RMSE**, rolling 3-game baseline **4.56 MAE / 6.41 RMSE**, season-to-date baseline **4.45 MAE / 6.27 RMSE**. Do not reopen Phase 5 model selection without a new measured experiment. Phase 6 work should build on `src/scoring.py`, `src/features.py`, and `src/modeling.py` as-is.
+
+---
+
 # 15. Session Handoff
 
 Before ending a substantial coding session, a coding assistant should leave this section accurate.
@@ -1047,13 +1069,21 @@ Added notebook markdown interpreting the defensive feature results. Expanded fea
 
 Decided to keep only `prev_defense_wr_ppr_allowed_avg` as the MVP defensive feature. Started `src/modeling.py` with `FEATURE_COLUMNS`, `TARGET_COLUMN`, `TEST_SEASON`, `make_train_test_data()`, and `train_linear_regression()`.
 
+Updated `notebooks/03_further_engineering.ipynb` to import the model constants and Linear Regression helper from `src/modeling.py`. Downstream model-result outputs were cleared so they can be regenerated from a clean notebook run.
+
+Re-ran `notebooks/03_further_engineering.ipynb` end to end from a clean kernel (`jupyter nbconvert --to notebook --execute --inplace`) and confirmed the metrics reproduced exactly: Linear Regression 4.39 MAE / 6.00 RMSE, Random Forest 4.46 MAE / 6.12 RMSE, rolling baseline 4.56 MAE / 6.41 RMSE, season-to-date baseline 4.45 MAE / 6.27 RMSE.
+
+Added `evaluate_predictions(y_true, y_pred)` to `src/modeling.py`, a rounded MAE/RMSE helper now used inside `train_linear_regression()`. Added `tests/test_modeling.py` covering `make_train_test_data()`'s season-based split and `evaluate_predictions()`'s MAE/RMSE math; all three test scripts (scoring, features, modeling) pass. Confirmed `.gitignore` already covers `__pycache__/` and `.venv`.
+
+Marked all five Phase 5 tasks complete and moved Current Phase to Phase 6 — Productionize Python Code.
+
 ## Work In Progress
 
-Phase 5 model improvement / hardening. Modeling logic is being moved from the notebook into reusable Python code.
+Phase 6 — Productionize Python Code. `src/scoring.py`, `src/features.py`, and `src/modeling.py` already hold reusable, tested logic for scoring, feature engineering, and model training/evaluation. Remaining Phase 6 work is data loading, single-player prediction, and model persistence.
 
 ## Next Recommended Task
 
-Update `notebooks/03_further_engineering.ipynb` to use the constants and Linear Regression helper from `src/modeling.py`, then add reusable evaluation helpers and tests for the modeling module.
+Move the notebook's data-loading/filtering logic (`nfl.load_player_stats(...)` + WR/regular-season filtering) into a small `src/data.py` function, then build a reusable single-player prediction function on top of the saved/trained model.
 
 ## Known Problems / Blockers
 

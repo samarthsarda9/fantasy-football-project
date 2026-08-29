@@ -40,6 +40,21 @@ def make_train_test_data(
     y_test = dataset.filter(pl.col("season") == test_season).select(target_column).to_numpy().ravel()   
     return X_train, X_test, y_train, y_test
 
+def evaluate_predictions(y_true: np.ndarray, y_pred: np.ndarray) -> tuple[float, float]:
+    """
+    Calculates MAE and RMSE for a set of predictions.
+
+    Parameters:
+    y_true (np.ndarray): Actual target values.
+    y_pred (np.ndarray): Predicted target values.
+
+    Returns:
+    tuple: (mae, rmse), each rounded to 2 decimal places.
+    """
+    mae = round(mean_absolute_error(y_true, y_pred), 2)
+    rmse = round(root_mean_squared_error(y_true, y_pred), 2)
+    return mae, rmse
+
 def train_linear_regression(df: pl.DataFrame):
     """
     Trains a linear regression model using the provided DataFrame.
@@ -63,7 +78,6 @@ def train_linear_regression(df: pl.DataFrame):
     model.fit(X_train, y_train)
 
     y_pred = model.predict(X_test)
-    mae = mean_absolute_error(y_test, y_pred)
-    rmse = root_mean_squared_error(y_test, y_pred)
+    mae, rmse = evaluate_predictions(y_test, y_pred)
 
     return model, mae, rmse
