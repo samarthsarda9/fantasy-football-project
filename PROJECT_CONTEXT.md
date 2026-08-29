@@ -569,14 +569,14 @@ The agent must not fabricate statistics or projections.
 
 Tasks:
 
-* [ ] Install/configure Agents SDK
-* [ ] Create first tool
-* [ ] Verify agent tool calling
-* [ ] Add projection tool
+* [x] Install/configure Agents SDK
+* [x] Create first tool
+* [x] Verify agent tool calling
+* [x] Add projection tool
 * [ ] Add stats tool
 * [ ] Add comparison tool
 * [ ] Build start/sit workflow
-* [ ] Add basic error handling
+* [x] Add basic error handling
 * [ ] Add trace/evaluation examples
 
 Completion criteria:
@@ -651,7 +651,7 @@ The project can be demonstrated through a public URL and explained clearly in an
 
 ## Current Phase
 
-**Phase 7 — FastAPI Backend (complete, moving to Phase 8)**
+**Phase 8 — Agentic AI (in progress)**
 
 Phase 6 is complete. All eight Phase 6 tasks are checked off: data loading, scoring, feature engineering, and model training all live in tested `src/` modules; a reusable single-player prediction function and model persistence (save/load) exist; and the notebook's manual MAE/RMSE calculations were replaced with `evaluate_predictions()`.
 
@@ -660,6 +660,12 @@ Phase 7 is now also complete. `src/api.py` defines a FastAPI app with a `lifespa
 `fastapi`, `uvicorn`, and `httpx` were added as new dependencies (`requirements.txt` regenerated via `pip freeze`). `tests/test_api.py` uses FastAPI's `TestClient` and follows the existing assertion-script style (`PYTHONPATH=. python tests/test_api.py`); it monkeypatches `api.load_wr_weekly_stats` (network call) and `api.load_model` with a small in-memory fixture and a stub model so tests run offline and deterministically, while still exercising the real `calculate_ppr`/`create_features`/`create_defensive_features` pipeline. All 6 test scripts pass (`test_scoring`, `test_features`, `test_modeling`, `test_predict`, `test_data`, `test_api`).
 
 The API was also manually run end to end with `uvicorn src.api:app` and hit with `curl`: `/predictions/CeeDee%20Lamb` returned **15.08** projected PPR points, matching the value recorded from the notebook demo in Phase 6, confirming the API reproduces the tested pipeline exactly.
+
+Phase 8 is now in progress. `src/agent.py` defines one **Fantasy Analyst Agent** using the OpenAI Agents SDK (`openai-agents`, new dependency) with a single deterministic tool, `get_player_projection`, which calls this project's own FastAPI `/predictions/{player_display_name}` route (`API_BASE_URL`, default `http://127.0.0.1:8000`) rather than letting the LLM invent a number. The tool logic lives in a plain function, `_fetch_projection()`, wrapped by `@function_tool` so it stays unit-testable independent of the agent loop.
+
+**Model note:** the agent does not use OpenAI's own models. The developer's OpenAI account has no billing credits, so the agent instead points at Gemini through Gemini's OpenAI-compatible endpoint (`https://generativelanguage.googleapis.com/v1beta/openai/`), using the `openai` package's `AsyncOpenAI` client (already a transitive dependency of `openai-agents`) wrapped in `agents.OpenAIChatCompletionsModel`. This avoided adding a new dependency (e.g. `litellm`) just to swap providers. Current model: `gemini-3.6-flash` (read `GEMINI_API_KEY` from `.env`; note the initially-provided key looked like it might be non-standard, but it authenticated successfully against Gemini's endpoint). If OpenAI credits are added later, switching back only requires changing the `model=` argument passed to `Agent(...)`.
+
+`tests/test_agent.py` covers `_fetch_projection()` against a stubbed `requests.get`, matching the monkeypatch style used in `tests/test_api.py`, so it runs offline with no LLM/network cost. The full agent loop was also verified live (real Gemini call, FastAPI server running locally): asking "How many points is CeeDee Lamb projected to score next week?" correctly triggered the `get_player_projection` tool and returned **15.08**, matching the deterministic model output exactly — confirming the agent is grounded in the real tool rather than hallucinating a number. All 7 test scripts now pass (`test_scoring`, `test_features`, `test_modeling`, `test_predict`, `test_data`, `test_api`, `test_agent`).
 
 ## Current Status
 
@@ -750,17 +756,15 @@ Phase 5 is now considered complete. Linear Regression is the final MVP model wit
 
 ## Immediate Goal
 
-Begin Phase 8: build one tool-using Fantasy Analyst Agent (OpenAI Agents SDK) with deterministic tools that call the FastAPI backend rather than inventing projections.
+Continue Phase 8: expand the Fantasy Analyst Agent beyond its first tool (recent stats, comparison, start/sit workflow, tracing).
 
 ## Current Next Steps
 
-1. Install/configure the OpenAI Agents SDK (new dependency — explain why before adding).
-2. Create a first deterministic tool, e.g. `get_player_projection`, that calls the FastAPI `/predictions/{player_display_name}` route rather than duplicating model logic.
-3. Verify basic agent tool-calling works end to end with that one tool.
-4. Add a `get_recent_stats` tool backed by `/players/{player_display_name}`.
-5. Add a `compare_players` tool/workflow for start/sit questions.
-6. Add basic error handling for unknown players and add trace/evaluation examples.
-7. Continue avoiding frontend and deployment work until the agent layer works end to end.
+1. Add a `get_recent_stats` tool backed by `/players/{player_display_name}`.
+2. Add a `compare_players` tool/workflow for start/sit questions (e.g. call the projection tool twice and let the agent compare).
+3. Add trace/evaluation examples (the Agents SDK has built-in tracing).
+4. If OpenAI billing is restored, consider switching the agent's `model=` back to an OpenAI model instead of Gemini.
+5. Continue avoiding frontend and deployment work until the agent layer works end to end.
 
 ## Currently NOT Working On
 
@@ -1100,6 +1104,16 @@ Format:
 
 ---
 
+### 2026-08-29 — Phase 8 started: first agent tool, and swap to Gemini for the model
+
+**Decision:** Build one Fantasy Analyst Agent (`src/agent.py`) with the OpenAI Agents SDK and a single deterministic tool, `get_player_projection`, that calls this project's own FastAPI backend. Because the developer's OpenAI account has no billing credits, point the agent's model at Gemini via Gemini's OpenAI-compatible endpoint (`agents.OpenAIChatCompletionsModel` + `openai.AsyncOpenAI` pointed at `https://generativelanguage.googleapis.com/v1beta/openai/`) instead of adding a new provider-specific dependency like `litellm`.
+
+**Reason:** The Agents SDK's model backend and the deterministic-tool design are separable concerns; swapping the LLM provider shouldn't require switching frameworks or introducing new dependencies when the SDK's model abstraction already supports a custom OpenAI-compatible client.
+
+**Impact:** Current agent model is `gemini-3.6-flash` (an initial attempt at `gemini-2.5-flash` failed with a 404 telling us it was deprecated in favor of `gemini-3.6-flash`). Verified live end to end: asking about CeeDee Lamb's projection correctly triggered the tool and returned **15.08**, matching the deterministic pipeline. Switching back to an OpenAI model later is a one-line change to `Agent(model=...)`. `openai-agents` is a new dependency; `requirements.txt` was regenerated via `pip freeze`.
+
+---
+
 # 15. Session Handoff
 
 Before ending a substantial coding session, a coding assistant should leave this section accurate.
@@ -1144,11 +1158,11 @@ Replaced the four manual Polars baseline MAE/RMSE cells in `notebooks/03_further
 
 ## Work In Progress
 
-Phase 8 — Agentic AI. No agent code exists yet. `src/api.py` now exposes `/health`, `/players/{player_display_name}`, and `/predictions/{player_display_name}` and should be the interface the agent's tools call into (rather than importing `src/predict.py`/`src/modeling.py` directly), so the agent stays decoupled from the ML internals.
+Phase 8 — Agentic AI, in progress. `src/agent.py` has one working tool (`get_player_projection`) calling the FastAPI backend, verified live against Gemini. Still missing: a recent-stats tool, a comparison/start-sit workflow, and tracing/eval examples.
 
 ## Next Recommended Task
 
-Install the OpenAI Agents SDK and build one Fantasy Analyst Agent tool (e.g. `get_player_projection`) that calls the running FastAPI `/predictions/{player_display_name}` route, then verify basic tool-calling works end to end before adding more tools.
+Add a `get_recent_stats` tool to `src/agent.py` backed by the FastAPI `/players/{player_display_name}` route, following the same pattern as `get_player_projection` (a plain testable helper function wrapped by `@function_tool`).
 
 ## Known Problems / Blockers
 
