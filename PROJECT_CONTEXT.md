@@ -518,12 +518,12 @@ GET /compare
 
 Tasks:
 
-* [ ] Create FastAPI application
-* [ ] Expose player data
-* [ ] Expose projections
-* [ ] Return structured JSON
-* [ ] Handle unknown players/errors
-* [ ] Add API tests
+* [x] Create FastAPI application
+* [x] Expose player data
+* [x] Expose projections
+* [x] Return structured JSON
+* [x] Handle unknown players/errors
+* [x] Add API tests
 
 Completion criteria:
 
@@ -651,9 +651,15 @@ The project can be demonstrated through a public URL and explained clearly in an
 
 ## Current Phase
 
-**Phase 7 — FastAPI Backend**
+**Phase 7 — FastAPI Backend (complete, moving to Phase 8)**
 
 Phase 6 is complete. All eight Phase 6 tasks are checked off: data loading, scoring, feature engineering, and model training all live in tested `src/` modules; a reusable single-player prediction function and model persistence (save/load) exist; and the notebook's manual MAE/RMSE calculations were replaced with `evaluate_predictions()`.
+
+Phase 7 is now also complete. `src/api.py` defines a FastAPI app with a `lifespan` startup hook that builds the same feature table as `notebooks/03_further_engineering.ipynb` (`load_wr_weekly_stats` → `calculate_ppr` → `create_features` → `create_defensive_features`) and loads the trained model via `load_model()`, once, at process startup rather than per request. Three routes exist: `GET /health` (health check), `GET /players/{player_display_name}` (latest computed feature row for a player), and `GET /predictions/{player_display_name}` (projected next-week PPR via `predict_player_projection`). Unknown players raise `ValueError` inside `get_latest_player_row`, which the routes catch and convert to a `404`.
+
+`fastapi`, `uvicorn`, and `httpx` were added as new dependencies (`requirements.txt` regenerated via `pip freeze`). `tests/test_api.py` uses FastAPI's `TestClient` and follows the existing assertion-script style (`PYTHONPATH=. python tests/test_api.py`); it monkeypatches `api.load_wr_weekly_stats` (network call) and `api.load_model` with a small in-memory fixture and a stub model so tests run offline and deterministically, while still exercising the real `calculate_ppr`/`create_features`/`create_defensive_features` pipeline. All 6 test scripts pass (`test_scoring`, `test_features`, `test_modeling`, `test_predict`, `test_data`, `test_api`).
+
+The API was also manually run end to end with `uvicorn src.api:app` and hit with `curl`: `/predictions/CeeDee%20Lamb` returned **15.08** projected PPR points, matching the value recorded from the notebook demo in Phase 6, confirming the API reproduces the tested pipeline exactly.
 
 ## Current Status
 
@@ -744,16 +750,17 @@ Phase 5 is now considered complete. Linear Regression is the final MVP model wit
 
 ## Immediate Goal
 
-Begin Phase 7: expose player data and Linear Regression projections over a FastAPI backend, using the existing `src/` modules rather than duplicating their logic.
+Begin Phase 8: build one tool-using Fantasy Analyst Agent (OpenAI Agents SDK) with deterministic tools that call the FastAPI backend rather than inventing projections.
 
 ## Current Next Steps
 
-1. Create a minimal FastAPI application (e.g. `src/api.py` or `app/main.py`) with a health-check route to confirm the app runs.
-2. Expose a route (e.g. `GET /players/{player_id}` or by display name) that returns a player's recent stats, backed by `src/data.py` and `src/features.py`.
-3. Expose a projection route (e.g. `GET /predictions/{player_id}`) backed by `src/modeling.py` (`load_model()`) and `src/predict.py` (`predict_next_week_ppr`).
-4. Handle the unknown-player case cleanly (e.g. 404) rather than letting `get_latest_player_row`'s `ValueError` bubble up as a 500.
-5. Add API tests (e.g. with FastAPI's `TestClient`).
-6. Continue avoiding the Agents SDK, frontend, and deployment work until the FastAPI layer works end to end.
+1. Install/configure the OpenAI Agents SDK (new dependency — explain why before adding).
+2. Create a first deterministic tool, e.g. `get_player_projection`, that calls the FastAPI `/predictions/{player_display_name}` route rather than duplicating model logic.
+3. Verify basic agent tool-calling works end to end with that one tool.
+4. Add a `get_recent_stats` tool backed by `/players/{player_display_name}`.
+5. Add a `compare_players` tool/workflow for start/sit questions.
+6. Add basic error handling for unknown players and add trace/evaluation examples.
+7. Continue avoiding frontend and deployment work until the agent layer works end to end.
 
 ## Currently NOT Working On
 
@@ -1083,6 +1090,16 @@ Format:
 
 ---
 
+### 2026-08-29 — Phase 7 closed out: FastAPI backend
+
+**Decision:** Build a single FastAPI app (`src/api.py`) that builds the feature table and loads the trained model once at startup (via a `lifespan` hook), then serves three routes: `/health`, `/players/{player_display_name}`, `/predictions/{player_display_name}`.
+
+**Reason:** Rebuilding the feature table or reloading the model on every request would be slow and wasteful; the notebook already established the exact pipeline (`load_wr_weekly_stats` → `calculate_ppr` → `create_features` → `create_defensive_features`) and `load_model()`/`predict_player_projection()` already existed in `src/modeling.py`/`src/predict.py`, so the API should reuse them rather than duplicate logic.
+
+**Impact:** `fastapi`, `uvicorn`, and `httpx` are new dependencies, added to `requirements.txt` via `pip freeze`. `tests/test_api.py` monkeypatches the network fetch and model load so tests run offline; all 6 test scripts pass. Manual end-to-end run reproduced the notebook's **15.08** CeeDee Lamb projection exactly. Move Current Phase to Phase 8 — Agentic AI.
+
+---
+
 # 15. Session Handoff
 
 Before ending a substantial coding session, a coding assistant should leave this section accurate.
@@ -1127,11 +1144,11 @@ Replaced the four manual Polars baseline MAE/RMSE cells in `notebooks/03_further
 
 ## Work In Progress
 
-Phase 7 — FastAPI Backend. No API code exists yet. `src/data.py`, `src/scoring.py`, `src/features.py`, `src/modeling.py`, and `src/predict.py` hold all the reusable, tested logic (data loading, scoring, feature engineering, model training/evaluation, single-player prediction, model persistence) that the API should be built on top of.
+Phase 8 — Agentic AI. No agent code exists yet. `src/api.py` now exposes `/health`, `/players/{player_display_name}`, and `/predictions/{player_display_name}` and should be the interface the agent's tools call into (rather than importing `src/predict.py`/`src/modeling.py` directly), so the agent stays decoupled from the ML internals.
 
 ## Next Recommended Task
 
-Create a minimal FastAPI application with a health-check route, then add a route that returns a player's projection using `load_model()` (from `src/modeling.py`) and `predict_next_week_ppr()` (from `src/predict.py`).
+Install the OpenAI Agents SDK and build one Fantasy Analyst Agent tool (e.g. `get_player_projection`) that calls the running FastAPI `/predictions/{player_display_name}` route, then verify basic tool-calling works end to end before adding more tools.
 
 ## Known Problems / Blockers
 

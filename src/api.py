@@ -1,0 +1,71 @@
+from contextlib import asynccontextmanager
+
+import polars as pl
+from fastapi import FastAPI, HTTPException
+
+from src.data import load_wr_weekly_stats
+from src.scoring import calculate_ppr
+from src.features import create_features, create_defensive_features
+from src.modeling import load_model
+from src.predict import get_latest_player_row, predict_player_projection
+
+SEASONS = [2021, 2022, 2023, 2024, 2025]
+
+model = None
+features_df: pl.DataFrame | None = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Builds the same feature table used in notebooks/03_further_engineering.ipynb
+    and loads the trained model once, at startup, instead of per-request.
+    """
+    global model, features_df
+
+    raw_stats = load_wr_weekly_stats(SEASONS)
+    scored_stats = calculate_ppr(raw_stats)
+    stats_with_features = create_features(scored_stats)
+    features_df = create_defensive_features(stats_with_features)
+
+    model = load_model()
+
+    yield
+
+
+app = FastAPI(title="Fantasy Football AI Predictor", lifespan=lifespan)
+
+
+@app.get("/health")
+def health_check() -> dict:
+    return {"status": "ok"}
+
+
+@app.get("/players/{player_display_name}")
+def get_player_stats(player_display_name: str) -> dict:
+    """
+    Returns a player's most recent computed feature row (recent stats used for projection).
+    """
+    try:
+        player_row = get_latest_player_row(features_df, player_display_name)
+    except ValueError:
+        raise HTTPException(status_code=404, detail=f"Player not found: {player_display_name}")
+
+    return player_row.to_dicts()[0]
+
+
+@app.get("/predictions/{player_display_name}")
+def get_player_projection(player_display_name: str) -> dict:
+    """
+    Returns a player's projected next-week full-PPR points from the trained model.
+    """
+    try:
+        player_row = get_latest_player_row(features_df, player_display_name)
+    except ValueError:
+        raise HTTPException(status_code=404, detail=f"Player not found: {player_display_name}")
+
+    projection = predict_player_projection(model, player_row)
+    return {
+        "player_display_name": player_display_name,
+        "projected_ppr": projection,
+    }
