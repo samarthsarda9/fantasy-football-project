@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 import polars as pl
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from src.data import load_wr_weekly_stats
 from src.scoring import calculate_ppr
@@ -35,10 +36,38 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Fantasy Football AI Predictor", lifespan=lifespan)
 
+# Allows the Next.js dev server (a different origin) to call this API directly
+# from the browser. Local dev origins only; revisit before deploying either app.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
+
 
 @app.get("/health")
 def health_check() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/players")
+def list_players() -> list[str]:
+    """
+    Returns the sorted list of WR display names from the most recent season in
+    the dataset, for populating a player selector in the frontend.
+    """
+    latest_season = features_df.select(pl.col("season").max()).item()
+    names = (
+        features_df
+        .filter(pl.col("season") == latest_season)
+        .select("player_display_name")
+        .unique()
+        .sort("player_display_name")
+        .to_series()
+        .to_list()
+    )
+    return names
 
 
 @app.get("/players/{player_display_name}")

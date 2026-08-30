@@ -604,14 +604,14 @@ MVP features:
 
 Tasks:
 
-* [ ] Create Next.js project
-* [ ] Connect frontend to FastAPI
-* [ ] Add player selector
-* [ ] Add projection card
-* [ ] Add recent stats
-* [ ] Add comparison UI
+* [x] Create Next.js project
+* [x] Connect frontend to FastAPI
+* [x] Add player selector
+* [x] Add projection card
+* [x] Add recent stats
+* [x] Add comparison UI
 * [ ] Add agent chat/input
-* [ ] Add loading/error states
+* [x] Add loading/error states
 
 Completion criteria:
 
@@ -651,7 +651,7 @@ The project can be demonstrated through a public URL and explained clearly in an
 
 ## Current Phase
 
-**Phase 8 — Agentic AI (complete, moving to Phase 9)**
+**Phase 9 — Frontend (in progress)**
 
 Phase 6 is complete. All eight Phase 6 tasks are checked off: data loading, scoring, feature engineering, and model training all live in tested `src/` modules; a reusable single-player prediction function and model persistence (save/load) exist; and the notebook's manual MAE/RMSE calculations were replaced with `evaluate_predictions()`.
 
@@ -674,6 +674,16 @@ A third tool, `compare_players(player_a, player_b)`, was added to close out the 
 All 7 test scripts now pass (`test_scoring`, `test_features`, `test_modeling`, `test_predict`, `test_data`, `test_api`, `test_agent`). All three of the agent's planned tools now exist.
 
 Phase 8 is now complete. `src/agent.py` adds `summarize_tool_calls(result)`, which reads `result.new_items` to produce a simple human-readable trace of which tools were called and what they returned — a lightweight local stand-in for the Agents SDK's hosted OpenAI tracing dashboard, which needs OpenAI billing this project doesn't have (the agent runs on Gemini). It also adds `eval_projection_is_grounded(player_display_name)`, a minimal grounding check that runs the agent, confirms `get_player_projection` was actually called (via the trace) rather than guessed, and confirms the number in the agent's final answer matches the deterministic API value fetched independently. Both were verified live: the trace correctly showed `compare_players` being called for the start/sit demo query, and the grounding eval returned `True` for CeeDee Lamb, confirming the agent's answer traces back to real tool output rather than an invented number.
+
+Phase 9 is now in progress. A Next.js (TypeScript, App Router, Tailwind) project was scaffolded in `frontend/` via `create-next-app`. `src/api.py` gained a CORS middleware (`allow_origins` limited to `http://localhost:3000`/`http://127.0.0.1:3000`, local-dev only) and a new `GET /players` route (`list_players()`) that returns the sorted WR display names from the latest season in the dataset, for populating a player selector; `tests/test_api.py` covers it (fixture extended with a second player who only appears in an earlier season, to verify the latest-season filter). On the frontend: `frontend/src/lib/api.ts` is a small typed fetch client (`listPlayers`, `getPlayerStats`, `getPlayerProjection`, a `PlayerNotFoundError` for 404s), `frontend/src/lib/useAsyncData.ts` is a small idle/loading/error/success hook shared by data-fetching components (loading is derived by comparing the fetched result's key to the current key, not set directly in an effect, to satisfy the stricter `react-hooks/set-state-in-effect` lint rule that ships with this Next.js version), and `frontend/src/components/` has `PlayerSelector`, `ProjectionCard`, and `RecentStatsCard`, wired together in `frontend/src/app/page.tsx`.
+
+Verified, not just built: `npm run lint`, `npx tsc --noEmit`, and `npm run build` all pass cleanly; and the app was driven end to end with a headless Playwright script (`chromium-cli` wasn't available in this environment, so a small Playwright driver script was used instead per the `run` skill's documented fallback) against both the real Next.js dev server and the real FastAPI backend — selecting "CeeDee Lamb" correctly populated both cards with **15.08** PPR points projected and the exact real recent-game stats (1.4 PPR last game, 12.6 rolling-3 avg, 16.62 season avg), with zero console errors or failed requests.
+
+`PlayerSelector` was then changed from a `<select>` dropdown to a free-text `<input>` with a native `<datalist>` for suggestions (still backed by `GET /players`), since typing is a more natural interaction than scrolling a 240+ option dropdown. Submission is deliberately debounced to blur/Enter (not every keystroke) so the app doesn't fire a request — and flash a "not found" error — on every partial keystroke. Syncing the text box when `value` changes externally is done by adjusting state during render (comparing to a stored `prevValue`) rather than in a `useEffect`, again to satisfy this Next.js version's stricter `set-state-in-effect` lint rule. Verified live: typing "CeeDee Lamb" and pressing Enter shows the real 15.08 projection; typing a typo ("Ceedee Lam") and blurring shows a clean "Player not found" message in both cards instead of a crash — confirming the existing error-state handling covers free-text typos, not just an already-known-good dropdown value.
+
+The native `<datalist>` was then replaced with a custom-rendered suggestion dropdown, after the developer reported it rendering as an oversized, unstyled side panel in their browser rather than a normal small dropdown (native `datalist` styling is not controllable and varies a lot across browsers/engines). The custom version filters `players` client-side and ranks names starting with the typed query above names that merely contain it elsewhere (so typing "g" surfaces "Garrett Wilson" before "Casey Washington"), renders as a small absolutely-positioned list matching the app's light/dark styling, and closes on outside click or Escape. Selecting a suggestion uses `onMouseDown` with `preventDefault()` (fires before the input's `onBlur`) so clicking a suggestion doesn't get treated as a submitted typo first. Verified live in both light and dark mode with a headless-browser script: suggestions are ranked and styled correctly, clicking one populates real data, and the dropdown closes on outside click.
+
+A two-player comparison view was added: `frontend/src/components/ComparisonCard.tsx` takes two player names, fetches each one's projection independently (two `useAsyncData` calls), and computes the recommendation client-side in plain JS once both resolve — the same "deterministic code before agents" principle as the backend agent's `compare_players` tool, just implemented again on the frontend rather than calling the agent for something this simple. `frontend/src/app/page.tsx` gained a second section with two `PlayerSelector`s (Player A / Player B) feeding this card. `useAsyncData`'s `AsyncState` type was exported so `ComparisonCard` could type its per-player status rendering. Verified live: selecting CeeDee Lamb and Puka Nacua produced "Start Puka Nacua (20.89 PPR) over CeeDee Lamb (15.08 PPR)" — matching the real API values and the agent's earlier answer to the same matchup exactly.
 
 ## Current Status
 
@@ -764,17 +774,14 @@ Phase 5 is now considered complete. Linear Regression is the final MVP model wit
 
 ## Immediate Goal
 
-Begin Phase 9: build a simple Next.js frontend that connects to the FastAPI backend (and, for the agent chat feature, to the agent) rather than reimplementing any of the Python logic in JavaScript.
+Continue Phase 9: add the agent chat feature, then close out the phase.
 
 ## Current Next Steps
 
-1. Create a Next.js (TypeScript) project, kept simple per the MVP frontend scope.
-2. Connect the frontend to the running FastAPI backend (`/players/{player_display_name}`, `/predictions/{player_display_name}`).
-3. Add a player selector, a projection card, and recent-stats display.
-4. Add a two-player comparison UI.
-5. Add a simple chat-style input that calls the Fantasy Analyst Agent (this likely needs a small FastAPI route wrapping `Runner.run_sync`, since the agent currently only runs as a Python script).
-6. Add loading/error states.
-7. If OpenAI billing is restored, consider switching the agent's `model=` back to an OpenAI model instead of Gemini — not required for the frontend to work either way.
+1. Add a small new FastAPI route wrapping `Runner.run_sync(fantasy_analyst_agent, ...)` from `src/agent.py`, since the agent currently only runs as a Python script and the frontend needs an HTTP way to reach it.
+2. Add a simple chat-style input/output to the frontend that calls that new route.
+3. Once the full Phase 9 task list is done, mark Phase 9 complete and move to Phase 10 — Resume Polish + Deployment.
+4. If OpenAI billing is restored, consider switching the agent's `model=` back to an OpenAI model instead of Gemini — not required for the frontend to work either way.
 
 ## Currently NOT Working On
 
@@ -1134,6 +1141,26 @@ Format:
 
 ---
 
+### 2026-08-30 — Phase 9 started: Next.js frontend, first slice
+
+**Decision:** Scaffold the frontend with `create-next-app`'s current defaults (TypeScript, App Router, Tailwind CSS, `src/` directory), add a `GET /players` backend route for populating a player selector, add CORS to the FastAPI app scoped to the local dev frontend origin, and build the player selector + projection card + recent-stats card as plain client components using `useState`/`useEffect` (via a small shared `useAsyncData` hook) rather than a data-fetching library like SWR/React Query.
+
+**Reason:** This MVP frontend is inherently client-driven (player selection, comparison, chat are all interactive), so plain client-side fetching is simpler to understand than Next.js's server-component/streaming patterns, and doesn't require a new dependency. CORS is required because the browser (not a Next.js server) calls the FastAPI backend directly from `http://localhost:3000`.
+
+**Impact:** The installed Next.js version (16.3.3) ships its own `AGENTS.md` at generation time warning that the framework may have changed since training data; consulted `node_modules/next/dist/docs/` for current App Router/data-fetching conventions before writing frontend code, and will do so again before writing new frontend patterns (e.g. Route Handlers for the future agent-chat route). The installed `eslint-plugin-react-hooks` enforces a stricter `set-state-in-effect` rule than older Next.js starters; `useAsyncData` derives its "loading" state by comparing a stored result's key to the current key instead of calling `setState` synchronously inside the effect body, which satisfies the rule and also more simply handles stale results from a previous selection. Verified live end to end with a headless Playwright driver script (`chromium-cli` was unavailable in this environment) against the real FastAPI backend: selecting a player correctly populated both cards with the exact real projection and stats.
+
+---
+
+### 2026-08-30 — Frontend: text-input player search, and comparison UI
+
+**Decision:** Replace `PlayerSelector`'s native `<datalist>` with a custom-rendered suggestion dropdown (ranks "starts with" matches above "contains" matches), and add a two-player comparison view (`ComparisonCard`) that fetches both players' projections and computes the recommendation client-side in plain JS.
+
+**Reason:** Native `<datalist>` styling isn't controllable and rendered as an oversized, unstyled side panel in the developer's browser rather than a small dropdown. The comparison recommendation is a simple numeric comparison, so — consistent with the earlier "deterministic code before agents" decision for the backend agent's `compare_players` tool — it's computed directly in the frontend rather than routed through the agent.
+
+**Impact:** `frontend/src/components/PlayerSelector.tsx` now manages its own suggestion list and open/close state; selecting a suggestion uses `onMouseDown`+`preventDefault()` so it isn't treated as a submitted typo by the input's `onBlur`. `frontend/src/lib/useAsyncData.ts` exports its `AsyncState` type so other components (`ComparisonCard`) can type per-item async state. Verified live in both light and dark mode: suggestion ranking/styling, and a CeeDee Lamb vs. Puka Nacua comparison producing "Start Puka Nacua (20.89 PPR) over CeeDee Lamb (15.08 PPR)" — matching the real API and the agent's own earlier answer to the same question.
+
+---
+
 # 15. Session Handoff
 
 Before ending a substantial coding session, a coding assistant should leave this section accurate.
@@ -1178,11 +1205,11 @@ Replaced the four manual Polars baseline MAE/RMSE cells in `notebooks/03_further
 
 ## Work In Progress
 
-Phase 8 — Agentic AI is complete. Phase 9 — Frontend has not been started; no `frontend/` or Next.js project exists yet.
+Phase 9 — Frontend, in progress. `frontend/` has a working Next.js app with a text-input player search (custom suggestion dropdown, not a native `<select>`/`<datalist>`), a projection card, a recent-stats card, and a two-player comparison view, all connected to the real FastAPI backend (with CORS enabled) and verified live via headless-browser driver scripts. Still missing: the agent chat feature.
 
 ## Next Recommended Task
 
-Create a Next.js (TypeScript) project and connect it to the running FastAPI backend, starting with a player selector and a projection card backed by `GET /predictions/{player_display_name}`.
+Add a FastAPI route (e.g. `POST /agent/ask`) that wraps `Runner.run_sync(fantasy_analyst_agent, question)` from `src/agent.py`, then add a simple chat input/output to the frontend that calls it — this is the last unbuilt Phase 9 MVP feature.
 
 ## Known Problems / Blockers
 

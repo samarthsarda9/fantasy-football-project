@@ -17,26 +17,27 @@ def make_raw_stats() -> pl.DataFrame:
     real output of load_wr_weekly_stats(), so the real scoring/feature pipeline
     can run on it without hitting the network.
     """
-    weeks = [1, 2, 3, 4]
+    # Player A has four 2024 (latest-season) weeks; Player C only has an
+    # earlier 2023 week, to exercise /players' latest-season filtering.
     return pl.DataFrame({
-        "player_display_name": ["Player A"] * 4,
-        "season": [2024] * 4,
-        "season_type": ["REG"] * 4,
-        "week": weeks,
-        "team": ["DAL"] * 4,
-        "opponent_team": ["NYG", "PHI", "WAS", "NYG"],
-        "receptions": [5, 6, 7, 8],
-        "targets": [7, 8, 9, 10],
-        "receiving_yards": [60.0, 70.0, 80.0, 90.0],
-        "receiving_tds": [1, 0, 1, 0],
-        "receiving_fumbles_lost": [0, 0, 0, 0],
-        "receiving_2pt_conversions": [0, 0, 0, 0],
-        "special_teams_tds": [0, 0, 0, 0],
-        "rushing_yards": [0.0, 0.0, 0.0, 0.0],
-        "rushing_tds": [0, 0, 0, 0],
-        "rushing_fumbles_lost": [0, 0, 0, 0],
-        "rushing_2pt_conversions": [0, 0, 0, 0],
-        "fantasy_points_ppr": [0.0, 0.0, 0.0, 0.0],
+        "player_display_name": ["Player A"] * 4 + ["Player C"],
+        "season": [2024] * 4 + [2023],
+        "season_type": ["REG"] * 5,
+        "week": [1, 2, 3, 4, 1],
+        "team": ["DAL"] * 4 + ["NYG"],
+        "opponent_team": ["NYG", "PHI", "WAS", "NYG", "DAL"],
+        "receptions": [5, 6, 7, 8, 3],
+        "targets": [7, 8, 9, 10, 5],
+        "receiving_yards": [60.0, 70.0, 80.0, 90.0, 40.0],
+        "receiving_tds": [1, 0, 1, 0, 0],
+        "receiving_fumbles_lost": [0, 0, 0, 0, 0],
+        "receiving_2pt_conversions": [0, 0, 0, 0, 0],
+        "special_teams_tds": [0, 0, 0, 0, 0],
+        "rushing_yards": [0.0, 0.0, 0.0, 0.0, 0.0],
+        "rushing_tds": [0, 0, 0, 0, 0],
+        "rushing_fumbles_lost": [0, 0, 0, 0, 0],
+        "rushing_2pt_conversions": [0, 0, 0, 0, 0],
+        "fantasy_points_ppr": [0.0, 0.0, 0.0, 0.0, 0.0],
     })
 
 
@@ -56,6 +57,14 @@ def test_health_check():
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_list_players_returns_latest_season_only():
+    with make_client() as client:
+        response = client.get("/players")
+
+    assert response.status_code == 200
+    assert response.json() == ["Player A"]
 
 
 def test_get_player_stats_found():
@@ -95,6 +104,7 @@ def test_get_player_projection_not_found():
 
 if __name__ == "__main__":
     test_health_check()
+    test_list_players_returns_latest_season_only()
     test_get_player_stats_found()
     test_get_player_stats_not_found()
     test_get_player_projection_found()
