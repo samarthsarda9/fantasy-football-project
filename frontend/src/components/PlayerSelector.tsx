@@ -62,14 +62,14 @@ export function PlayerSelector({
 
   return (
     <div className="relative flex flex-col gap-1 text-sm">
-      <label className="font-medium text-zinc-700 dark:text-zinc-300" htmlFor={inputId}>
+      <label className="font-medium text-ink-secondary" htmlFor={inputId}>
         {label}
       </label>
       <input
         id={inputId}
         type="text"
         autoComplete="off"
-        className="rounded border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+        className="rounded-lg border border-line bg-surface px-3 py-2 outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/30 disabled:opacity-60"
         placeholder={players === null ? "Loading players..." : "Type a player name..."}
         value={inputValue}
         onChange={(event) => {
@@ -89,11 +89,11 @@ export function PlayerSelector({
       />
 
       {showSuggestions && suggestions.length > 0 && (
-        <ul className="absolute top-full z-10 mt-1 max-h-56 w-full overflow-y-auto rounded border border-zinc-300 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+        <ul className="absolute top-full z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-line bg-surface shadow-lg">
           {suggestions.map((name) => (
             <li
               key={name}
-              className="cursor-pointer px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              className="cursor-pointer px-3 py-2 transition-colors hover:bg-accent/10 hover:text-accent"
               // onMouseDown (not onClick) fires before the input's onBlur, and
               // preventDefault stops the blur from happening at all, so we can
               // select a suggestion without it getting submitted as a typo first.

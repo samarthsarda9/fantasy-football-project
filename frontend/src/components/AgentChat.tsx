@@ -35,12 +35,12 @@ export function AgentChat() {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-      <h2 className="text-sm font-medium text-zinc-500">Ask the Fantasy Analyst</h2>
+    <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4 shadow-sm">
+      <h2 className="text-sm font-medium text-ink-secondary">Ask the Fantasy Analyst</h2>
 
       <div className="flex flex-col gap-3">
         {messages.length === 0 && (
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-muted">
             Try: &quot;Should I start CeeDee Lamb or Puka Nacua?&quot;
           </p>
         )}
@@ -48,30 +48,41 @@ export function AgentChat() {
         {messages.map((message, index) => (
           <div key={index}>
             {message.role === "user" && (
-              <p className="text-sm">
-                <span className="font-medium">You: </span>
-                {message.text}
-              </p>
-            )}
-            {message.role === "agent" && (
-              <div className="rounded bg-zinc-50 p-3 text-sm dark:bg-zinc-900">
-                <p className="whitespace-pre-wrap">{message.text}</p>
-                {message.trace.length > 0 && (
-                  <p className="mt-2 text-xs text-zinc-400">
-                    Tools used:{" "}
-                    {message.trace
-                      .filter((line) => line.startsWith("called tool:"))
-                      .map((line) => line.replace("called tool: ", ""))
-                      .join(", ")}
-                  </p>
-                )}
+              <div className="flex justify-end">
+                <p className="max-w-[85%] rounded-2xl rounded-br-sm bg-accent px-3 py-2 text-sm text-white">
+                  {message.text}
+                </p>
               </div>
             )}
-            {message.role === "error" && <p className="text-sm text-red-600">{message.text}</p>}
+            {message.role === "agent" && (
+              <div className="flex justify-start">
+                <div className="max-w-[85%] rounded-2xl rounded-bl-sm border-l-4 border-l-secondary bg-background px-3 py-2 text-sm">
+                  <p className="whitespace-pre-wrap">{message.text}</p>
+                  {message.trace.length > 0 && (
+                    <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-secondary/10 px-2 py-0.5 text-xs font-medium text-secondary">
+                      Tools used:{" "}
+                      {message.trace
+                        .filter((line) => line.startsWith("called tool:"))
+                        .map((line) => line.replace("called tool: ", ""))
+                        .join(", ")}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+            {message.role === "error" && (
+              <p className="text-sm text-red-600">{message.text}</p>
+            )}
           </div>
         ))}
 
-        {isLoading && <p className="text-sm text-zinc-400">Thinking...</p>}
+        {isLoading && (
+          <div className="flex w-fit items-center gap-1 rounded-2xl rounded-bl-sm border-l-4 border-l-secondary bg-background px-3 py-2.5">
+            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-secondary [animation-delay:-0.3s]" />
+            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-secondary [animation-delay:-0.15s]" />
+            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-secondary" />
+          </div>
+        )}
       </div>
 
       <form
@@ -83,7 +94,7 @@ export function AgentChat() {
       >
         <input
           type="text"
-          className="flex-1 rounded border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/30"
           placeholder="Ask a question..."
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
@@ -91,7 +102,7 @@ export function AgentChat() {
         />
         <button
           type="submit"
-          className="rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+          className="rounded-full bg-accent px-4 py-2 text-sm font-medium text-white transition-all hover:scale-105 hover:bg-accent-strong active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
           disabled={isLoading || question.trim().length === 0}
         >
           Ask
