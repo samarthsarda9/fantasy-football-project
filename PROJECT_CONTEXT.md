@@ -573,9 +573,9 @@ Tasks:
 * [x] Create first tool
 * [x] Verify agent tool calling
 * [x] Add projection tool
-* [ ] Add stats tool
-* [ ] Add comparison tool
-* [ ] Build start/sit workflow
+* [x] Add stats tool
+* [x] Add comparison tool
+* [x] Build start/sit workflow
 * [x] Add basic error handling
 * [ ] Add trace/evaluation examples
 
@@ -665,7 +665,13 @@ Phase 8 is now in progress. `src/agent.py` defines one **Fantasy Analyst Agent**
 
 **Model note:** the agent does not use OpenAI's own models. The developer's OpenAI account has no billing credits, so the agent instead points at Gemini through Gemini's OpenAI-compatible endpoint (`https://generativelanguage.googleapis.com/v1beta/openai/`), using the `openai` package's `AsyncOpenAI` client (already a transitive dependency of `openai-agents`) wrapped in `agents.OpenAIChatCompletionsModel`. This avoided adding a new dependency (e.g. `litellm`) just to swap providers. Current model: `gemini-3.6-flash` (read `GEMINI_API_KEY` from `.env`; note the initially-provided key looked like it might be non-standard, but it authenticated successfully against Gemini's endpoint). If OpenAI credits are added later, switching back only requires changing the `model=` argument passed to `Agent(...)`.
 
-`tests/test_agent.py` covers `_fetch_projection()` against a stubbed `requests.get`, matching the monkeypatch style used in `tests/test_api.py`, so it runs offline with no LLM/network cost. The full agent loop was also verified live (real Gemini call, FastAPI server running locally): asking "How many points is CeeDee Lamb projected to score next week?" correctly triggered the `get_player_projection` tool and returned **15.08**, matching the deterministic model output exactly — confirming the agent is grounded in the real tool rather than hallucinating a number. All 7 test scripts now pass (`test_scoring`, `test_features`, `test_modeling`, `test_predict`, `test_data`, `test_api`, `test_agent`).
+`tests/test_agent.py` covers `_fetch_projection()` against a stubbed `requests.get`, matching the monkeypatch style used in `tests/test_api.py`, so it runs offline with no LLM/network cost. The full agent loop was also verified live (real Gemini call, FastAPI server running locally): asking "How many points is CeeDee Lamb projected to score next week?" correctly triggered the `get_player_projection` tool and returned **15.08**, matching the deterministic model output exactly — confirming the agent is grounded in the real tool rather than hallucinating a number.
+
+A second tool, `get_recent_stats`, was added the same way: a plain `_fetch_recent_stats()` helper calls the FastAPI `/players/{player_display_name}` route and formats the player's most recent game plus `prev_rolling_3_ppr`/`prev_season_avg_ppr` as a short summary string, wrapped by `@function_tool`. `tests/test_agent.py` now also covers `_fetch_recent_stats()` (found/not-found) against a stubbed response. The agent's instructions were updated to route projection questions to `get_player_projection` and recent-performance/usage questions to `get_recent_stats`. Verified live: asking "How has CeeDee Lamb's usage looked recently, and what's his projection for next week?" correctly called both tools and returned a summary citing the exact real numbers (1.4 PPR last game, 12.6 prior-3-game average, 16.62 season average, 15.08 projection) with no invented stats.
+
+A third tool, `compare_players(player_a, player_b)`, was added to close out the "comparison tool"/"start-sit workflow" tasks as one tool rather than a separate multi-agent workflow, consistent with the project's "one tool-using agent" decision. `_compare_players()` fetches both players' projections from the FastAPI backend and determines which is higher in plain Python — the numeric comparison is deterministic, so it isn't left to the LLM to eyeball. `tests/test_agent.py` covers the higher/tie/not-found cases against stubbed responses. Verified live: "Should I start CeeDee Lamb or Puka Nacua this week?" correctly called `compare_players` and recommended Puka Nacua, matching the real API values exactly (20.89 vs. 15.08).
+
+All 7 test scripts now pass (`test_scoring`, `test_features`, `test_modeling`, `test_predict`, `test_data`, `test_api`, `test_agent`). All three of the agent's planned tools now exist; remaining Phase 8 work is tracing/eval examples before closing out the phase.
 
 ## Current Status
 
@@ -756,15 +762,14 @@ Phase 5 is now considered complete. Linear Regression is the final MVP model wit
 
 ## Immediate Goal
 
-Continue Phase 8: expand the Fantasy Analyst Agent beyond its first tool (recent stats, comparison, start/sit workflow, tracing).
+Close out Phase 8 by adding trace/evaluation examples, then move to Phase 9 (Frontend).
 
 ## Current Next Steps
 
-1. Add a `get_recent_stats` tool backed by `/players/{player_display_name}`.
-2. Add a `compare_players` tool/workflow for start/sit questions (e.g. call the projection tool twice and let the agent compare).
-3. Add trace/evaluation examples (the Agents SDK has built-in tracing).
-4. If OpenAI billing is restored, consider switching the agent's `model=` back to an OpenAI model instead of Gemini.
-5. Continue avoiding frontend and deployment work until the agent layer works end to end.
+1. Add trace/evaluation examples (the Agents SDK has built-in tracing — inspect a run's tool calls/spans).
+2. Mark Phase 8 complete once tracing is demonstrated, and update Current Phase to Phase 9.
+3. If OpenAI billing is restored, consider switching the agent's `model=` back to an OpenAI model instead of Gemini.
+4. Continue avoiding frontend/deployment work until then, per the roadmap.
 
 ## Currently NOT Working On
 
@@ -1158,11 +1163,11 @@ Replaced the four manual Polars baseline MAE/RMSE cells in `notebooks/03_further
 
 ## Work In Progress
 
-Phase 8 — Agentic AI, in progress. `src/agent.py` has one working tool (`get_player_projection`) calling the FastAPI backend, verified live against Gemini. Still missing: a recent-stats tool, a comparison/start-sit workflow, and tracing/eval examples.
+Phase 8 — Agentic AI, nearly complete. `src/agent.py` has three working tools (`get_player_projection`, `get_recent_stats`, `compare_players`) calling the FastAPI backend, all verified live against Gemini. Still missing: a tracing/eval example before the phase is fully closed out.
 
 ## Next Recommended Task
 
-Add a `get_recent_stats` tool to `src/agent.py` backed by the FastAPI `/players/{player_display_name}` route, following the same pattern as `get_player_projection` (a plain testable helper function wrapped by `@function_tool`).
+Add a small tracing/eval example showing the Agents SDK's built-in tracing for one of the existing queries (e.g. inspect the run result's tool-call spans), then mark Phase 8 complete and move Current Phase to Phase 9 — Frontend.
 
 ## Known Problems / Blockers
 
