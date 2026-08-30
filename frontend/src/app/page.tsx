@@ -5,6 +5,7 @@ import { PlayerSelector } from "@/components/PlayerSelector";
 import { ProjectionCard } from "@/components/ProjectionCard";
 import { RecentStatsCard } from "@/components/RecentStatsCard";
 import { ComparisonCard } from "@/components/ComparisonCard";
+import { AgentChat } from "@/components/AgentChat";
 
 export default function Home() {
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
@@ -38,6 +39,11 @@ export default function Home() {
         </div>
 
         <ComparisonCard playerA={playerA} playerB={playerB} />
+      </div>
+
+      <div className="flex flex-col gap-4 border-t border-zinc-200 pt-8 dark:border-zinc-800">
+        <h2 className="text-xl font-semibold">Ask the Agent</h2>
+        <AgentChat />
       </div>
     </div>
   );

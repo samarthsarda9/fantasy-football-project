@@ -610,7 +610,7 @@ Tasks:
 * [x] Add projection card
 * [x] Add recent stats
 * [x] Add comparison UI
-* [ ] Add agent chat/input
+* [x] Add agent chat/input
 * [x] Add loading/error states
 
 Completion criteria:
@@ -651,7 +651,7 @@ The project can be demonstrated through a public URL and explained clearly in an
 
 ## Current Phase
 
-**Phase 9 — Frontend (in progress)**
+**Phase 9 — Frontend (complete, moving to Phase 10)**
 
 Phase 6 is complete. All eight Phase 6 tasks are checked off: data loading, scoring, feature engineering, and model training all live in tested `src/` modules; a reusable single-player prediction function and model persistence (save/load) exist; and the notebook's manual MAE/RMSE calculations were replaced with `evaluate_predictions()`.
 
@@ -684,6 +684,12 @@ Verified, not just built: `npm run lint`, `npx tsc --noEmit`, and `npm run build
 The native `<datalist>` was then replaced with a custom-rendered suggestion dropdown, after the developer reported it rendering as an oversized, unstyled side panel in their browser rather than a normal small dropdown (native `datalist` styling is not controllable and varies a lot across browsers/engines). The custom version filters `players` client-side and ranks names starting with the typed query above names that merely contain it elsewhere (so typing "g" surfaces "Garrett Wilson" before "Casey Washington"), renders as a small absolutely-positioned list matching the app's light/dark styling, and closes on outside click or Escape. Selecting a suggestion uses `onMouseDown` with `preventDefault()` (fires before the input's `onBlur`) so clicking a suggestion doesn't get treated as a submitted typo first. Verified live in both light and dark mode with a headless-browser script: suggestions are ranked and styled correctly, clicking one populates real data, and the dropdown closes on outside click.
 
 A two-player comparison view was added: `frontend/src/components/ComparisonCard.tsx` takes two player names, fetches each one's projection independently (two `useAsyncData` calls), and computes the recommendation client-side in plain JS once both resolve — the same "deterministic code before agents" principle as the backend agent's `compare_players` tool, just implemented again on the frontend rather than calling the agent for something this simple. `frontend/src/app/page.tsx` gained a second section with two `PlayerSelector`s (Player A / Player B) feeding this card. `useAsyncData`'s `AsyncState` type was exported so `ComparisonCard` could type its per-player status rendering. Verified live: selecting CeeDee Lamb and Puka Nacua produced "Start Puka Nacua (20.89 PPR) over CeeDee Lamb (15.08 PPR)" — matching the real API values and the agent's earlier answer to the same matchup exactly.
+
+Phase 9 is now complete. The last MVP feature, agent chat, required a new backend piece first: `src/api.py` gained `POST /agent/ask` (`AgentQuestion` in, `AgentAnswer` out), which `await Runner.run(fantasy_analyst_agent, payload.question)`s and returns `{answer, trace}`, where `trace` is `summarize_tool_calls(result)` from `src/agent.py` (Phase 8's tracing helper) — reused here to let the frontend show which real tool(s) grounded the answer, not just the answer text. CORS's `allow_methods` was extended to include `POST`. `tests/test_api.py` covers the route by monkeypatching `api.Runner` with a fake/failing stub (success and 502-on-exception cases), so tests never make a real LLM call. On the frontend, `frontend/src/components/AgentChat.tsx` is a simple message-list chat UI (`askAgent()` added to `frontend/src/lib/api.ts`) showing the user's question, the agent's answer, and a "Tools used: ..." line derived from the trace.
+
+One implementation detail worth recording: the agent's tools call the FastAPI backend over HTTP even when triggered from *within* that same backend process (the `/agent/ask` handler calls the agent, whose tools then `requests.get` back to `127.0.0.1:8000`, the same running server) — this was verified to work fine with uvicorn's default single-worker async setup, no deadlock, but it's a detail future changes to the tool implementations should preserve (e.g. don't assume tools only get called from a separate process).
+
+Verified live end to end (not just built): asking "Should I start CeeDee Lamb or Puka Nacua?" through the actual chat UI, hitting the real backend and real Gemini, correctly showed the answer plus "Tools used: compare_players", with the same real projections (20.89 / 15.08) seen throughout this session. All Phase 9 MVP frontend features (search/select, projection, recent stats, comparison, agent chat) are now built and backed by real project data end to end.
 
 ## Current Status
 
@@ -774,14 +780,16 @@ Phase 5 is now considered complete. Linear Regression is the final MVP model wit
 
 ## Immediate Goal
 
-Continue Phase 9: add the agent chat feature, then close out the phase.
+Begin Phase 10: turn the working project into a portfolio-quality, deployable one.
 
 ## Current Next Steps
 
-1. Add a small new FastAPI route wrapping `Runner.run_sync(fantasy_analyst_agent, ...)` from `src/agent.py`, since the agent currently only runs as a Python script and the frontend needs an HTTP way to reach it.
-2. Add a simple chat-style input/output to the frontend that calls that new route.
-3. Once the full Phase 9 task list is done, mark Phase 9 complete and move to Phase 10 — Resume Polish + Deployment.
-4. If OpenAI billing is restored, consider switching the agent's `model=` back to an OpenAI model instead of Gemini — not required for the frontend to work either way.
+1. Pick a deployment approach for the frontend (e.g. Vercel) and the backend (e.g. Docker + a host that can run a long-lived FastAPI process, since it needs to load data/model at startup).
+2. Deploy backend, then point the frontend's `NEXT_PUBLIC_API_BASE_URL` at the deployed backend URL and update CORS `allow_origins` accordingly.
+3. Confirm production API connectivity end to end (not just localhost).
+4. Improve the README: architecture diagram, screenshots/demo, model methodology, and measured model performance (use only numbers already recorded in this file's decisions log — do not fabricate).
+5. Add remaining tests/CI if appropriate for a portfolio project.
+6. If OpenAI billing is restored, consider switching the agent's `model=` back to an OpenAI model instead of Gemini — not required either way.
 
 ## Currently NOT Working On
 
@@ -1161,6 +1169,16 @@ Format:
 
 ---
 
+### 2026-08-30 — Phase 9 closed out: agent chat over HTTP
+
+**Decision:** Add `POST /agent/ask` to `src/api.py`, reusing Phase 8's `summarize_tool_calls()` so the response includes both the agent's answer and which real tool(s) grounded it, and surface that in the frontend chat UI as a "Tools used" line rather than just the answer text.
+
+**Reason:** This is the last Phase 9 MVP feature and needed a way to reach the agent (previously only runnable as a Python script) over HTTP. Showing which tool ran is cheap (the data already existed from Phase 8) and reinforces the project's core agentic-AI principle end-to-end in the UI: the LLM doesn't invent projections.
+
+**Impact:** `Runner.run` (the async variant, not `run_sync`) is used inside the `async def` route to avoid nested-event-loop issues. CORS now allows `POST`. `tests/test_api.py` mocks `api.Runner` so the test suite makes zero real LLM calls. One notable operational detail: the agent's tools call this same FastAPI process over HTTP even during a request already being handled by that process — confirmed this doesn't deadlock under uvicorn's default setup, but it's a constraint worth remembering if the tool implementations change. Verified live: chat UI correctly answered a start/sit question via `compare_players` with the real 20.89/15.08 projections. All Phase 9 tasks are complete; moving Current Phase to Phase 10 — Resume Polish + Deployment.
+
+---
+
 # 15. Session Handoff
 
 Before ending a substantial coding session, a coding assistant should leave this section accurate.
@@ -1205,11 +1223,11 @@ Replaced the four manual Polars baseline MAE/RMSE cells in `notebooks/03_further
 
 ## Work In Progress
 
-Phase 9 — Frontend, in progress. `frontend/` has a working Next.js app with a text-input player search (custom suggestion dropdown, not a native `<select>`/`<datalist>`), a projection card, a recent-stats card, and a two-player comparison view, all connected to the real FastAPI backend (with CORS enabled) and verified live via headless-browser driver scripts. Still missing: the agent chat feature.
+Phase 9 — Frontend is complete. `frontend/` has a working Next.js app: text-input player search (custom suggestion dropdown), a projection card, a recent-stats card, a two-player comparison view, and an agent chat — all connected to the real FastAPI backend (with CORS enabled for both GET and POST) and verified live via headless-browser driver scripts. Phase 10 — Resume Polish + Deployment has not been started; the app currently only runs locally.
 
 ## Next Recommended Task
 
-Add a FastAPI route (e.g. `POST /agent/ask`) that wraps `Runner.run_sync(fantasy_analyst_agent, question)` from `src/agent.py`, then add a simple chat input/output to the frontend that calls it — this is the last unbuilt Phase 9 MVP feature.
+Decide on a deployment approach (frontend and backend can use different hosts, e.g. Vercel for `frontend/` and a container host for the FastAPI backend), then deploy the backend first since the frontend needs its real URL for `NEXT_PUBLIC_API_BASE_URL` and CORS `allow_origins`.
 
 ## Known Problems / Blockers
 

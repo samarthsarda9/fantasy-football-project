@@ -102,6 +102,53 @@ def test_get_player_projection_not_found():
     assert response.status_code == 404
 
 
+class StubRunResult:
+    def __init__(self, final_output, new_items):
+        self.final_output = final_output
+        self.new_items = new_items
+
+
+class FakeRunner:
+    """Stands in for agents.Runner so tests never make a real LLM call."""
+
+    @staticmethod
+    async def run(agent, question):
+        return StubRunResult(final_output=f"Echo: {question}", new_items=[])
+
+
+class FailingRunner:
+    @staticmethod
+    async def run(agent, question):
+        raise RuntimeError("boom")
+
+
+def test_ask_agent_success():
+    original_runner = api.Runner
+    api.Runner = FakeRunner
+    try:
+        with make_client() as client:
+            response = client.post("/agent/ask", json={"question": "How good is Player A?"})
+    finally:
+        api.Runner = original_runner
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["answer"] == "Echo: How good is Player A?"
+    assert body["trace"] == []
+
+
+def test_ask_agent_failure():
+    original_runner = api.Runner
+    api.Runner = FailingRunner
+    try:
+        with make_client() as client:
+            response = client.post("/agent/ask", json={"question": "How good is Player A?"})
+    finally:
+        api.Runner = original_runner
+
+    assert response.status_code == 502
+
+
 if __name__ == "__main__":
     test_health_check()
     test_list_players_returns_latest_season_only()
@@ -109,4 +156,6 @@ if __name__ == "__main__":
     test_get_player_stats_not_found()
     test_get_player_projection_found()
     test_get_player_projection_not_found()
+    test_ask_agent_success()
+    test_ask_agent_failure()
     print("All API tests passed.")

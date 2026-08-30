@@ -1,9 +1,12 @@
 from contextlib import asynccontextmanager
 
 import polars as pl
+from agents import Runner
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
+from src.agent import fantasy_analyst_agent, summarize_tool_calls
 from src.data import load_wr_weekly_stats
 from src.scoring import calculate_ppr
 from src.features import create_features, create_defensive_features
@@ -41,7 +44,7 @@ app = FastAPI(title="Fantasy Football AI Predictor", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -98,3 +101,28 @@ def get_player_projection(player_display_name: str) -> dict:
         "player_display_name": player_display_name,
         "projected_ppr": projection,
     }
+
+
+class AgentQuestion(BaseModel):
+    question: str
+
+
+class AgentAnswer(BaseModel):
+    answer: str
+    trace: list[str]
+
+
+@app.post("/agent/ask")
+async def ask_agent(payload: AgentQuestion) -> AgentAnswer:
+    """
+    Runs the Fantasy Analyst Agent (src/agent.py) on a natural-language question
+    and returns its answer plus a trace of which tools it called, so the frontend
+    can show the answer is grounded in this project's real data rather than an
+    invented number.
+    """
+    try:
+        result = await Runner.run(fantasy_analyst_agent, payload.question)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Agent request failed: {exc}")
+
+    return AgentAnswer(answer=result.final_output, trace=summarize_tool_calls(result))
