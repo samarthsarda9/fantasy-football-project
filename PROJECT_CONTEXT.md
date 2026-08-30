@@ -691,6 +691,12 @@ One implementation detail worth recording: the agent's tools call the FastAPI ba
 
 Verified live end to end (not just built): asking "Should I start CeeDee Lamb or Puka Nacua?" through the actual chat UI, hitting the real backend and real Gemini, correctly showed the answer plus "Tools used: compare_players", with the same real projections (20.89 / 15.08) seen throughout this session. All Phase 9 MVP frontend features (search/select, projection, recent stats, comparison, agent chat) are now built and backed by real project data end to end.
 
+The frontend's visual styling was then redone at the developer's request ("plain black background, want color and something more interactive/fun"). Loaded the `dataviz` skill for a validated, accessible color approach rather than picking colors by eye. `frontend/src/app/globals.css` now defines semantic CSS custom properties (`--background`, `--surface`, `--ink-secondary`, `--muted`, `--line`, `--accent` (blue), `--secondary` (aqua/teal), `--good` (status green)) with light/dark values wired through Tailwind v4's `@theme inline`, replacing the plain `zinc`/`white`/`black` classes used throughout. Also fixed a latent bug: `body`'s `font-family` was hardcoded to `Arial, Helvetica, sans-serif`, silently overriding the Geist font already loaded via CSS variables in `layout.tsx` — now uses `var(--font-sans)` first.
+
+Color was assigned by role, not decoration: blue (`accent`) marks the primary projection stat tile and primary actions/links; aqua (`secondary`) marks the recent-stats tile and the agent's chat elements, giving the two stat tiles a categorical (not arbitrary) color distinction; status green (`good`) marks the higher-projected player in the comparison view, paired with both a label ("Better start") and a "▲" glyph rather than color alone, per the skill's rule that a status color must never carry meaning by itself. `page.tsx` gained two large blurred, low-opacity color blobs behind the content for visual interest, a gradient-text `h1`, and a small colored dot before each section heading. `AgentChat.tsx` was restyled into chat bubbles (accent for the user's message, a secondary-accent-bordered bubble for the agent's), plus a small three-dot bounce animation while waiting on a response, replacing the plain "Thinking..." text.
+
+Verified live in both light and dark mode with a headless-browser script: layout, colors, and contrast all read correctly in both modes; lint/typecheck/build all clean. Testing this also incidentally exhausted Gemini's free-tier daily quota (20 requests/day) from cumulative testing this session — the app's existing error handling (Phase 7/9 work) displayed the resulting `502` cleanly as a chat error bubble rather than crashing, which is itself a confirmation that the error-state design holds up under a real failure, not just a simulated one.
+
 ## Current Status
 
 Repository has been created and cloned locally.
@@ -1179,6 +1185,16 @@ Format:
 
 ---
 
+### 2026-08-30 — Frontend visual redesign using the dataviz skill's color method
+
+**Decision:** Restyle the frontend (previously plain black/white/`zinc`) using the `dataviz` skill's role-based color approach: semantic CSS variables for chrome (background/surface/ink/muted/line), one accent hue (blue) for primary actions/the projection tile, one secondary hue (aqua) for the recent-stats tile and chat, and the fixed status-green reserved only for "this projection is better" in the comparison view — always paired with a label and a glyph, never color alone.
+
+**Reason:** The developer asked for color and a more "fun/interactive" feel. Rather than picking hex values by eye, the `dataviz` skill's reference palette (`references/palette.md`) provided pre-validated, contrast-checked values, and its color-formula rules (assign hue by job, status color needs icon+label, text stays in ink tokens except a single tile's hero number) kept the result principled instead of arbitrary.
+
+**Impact:** `frontend/src/app/globals.css` centralizes all color as CSS custom properties consumed via Tailwind v4 `@theme inline`, so light/dark swap in one place; also fixed a pre-existing bug where `body`'s hardcoded `font-family: Arial...` was silently overriding the already-loaded Geist font. Verified live in both light and dark mode via headless-browser screenshots. Incidentally exhausted Gemini's free daily quota (20 req/day) from cumulative session testing — confirmed the existing error handling renders that failure as a clean chat error bubble rather than crashing, which is a useful real-world validation of Phase 7/9's error-state work. Gemini quota should reset ~24h after first use today; avoid further live agent calls until then, or switch to a different model/key if testing is urgent.
+
+---
+
 # 15. Session Handoff
 
 Before ending a substantial coding session, a coding assistant should leave this section accurate.
@@ -1223,7 +1239,7 @@ Replaced the four manual Polars baseline MAE/RMSE cells in `notebooks/03_further
 
 ## Work In Progress
 
-Phase 9 — Frontend is complete. `frontend/` has a working Next.js app: text-input player search (custom suggestion dropdown), a projection card, a recent-stats card, a two-player comparison view, and an agent chat — all connected to the real FastAPI backend (with CORS enabled for both GET and POST) and verified live via headless-browser driver scripts. Phase 10 — Resume Polish + Deployment has not been started; the app currently only runs locally.
+Phase 9 — Frontend is complete, including a visual redesign (color palette from the `dataviz` skill, restyled cards/chat/comparison view). Phase 10 — Resume Polish + Deployment has not been started; the app currently only runs locally.
 
 ## Next Recommended Task
 
@@ -1231,7 +1247,7 @@ Decide on a deployment approach (frontend and backend can use different hosts, e
 
 ## Known Problems / Blockers
 
-None currently recorded.
+Gemini's free-tier daily quota (20 requests/day on `gemini-3.6-flash`) was exhausted during this session's testing. The app handles this correctly (agent chat shows a clean error instead of crashing), but further live agent verification should wait ~24h for the quota to reset, or use a different Gemini API key/project.
 
 ---
 
