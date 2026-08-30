@@ -577,7 +577,7 @@ Tasks:
 * [x] Add comparison tool
 * [x] Build start/sit workflow
 * [x] Add basic error handling
-* [ ] Add trace/evaluation examples
+* [x] Add trace/evaluation examples
 
 Completion criteria:
 
@@ -651,7 +651,7 @@ The project can be demonstrated through a public URL and explained clearly in an
 
 ## Current Phase
 
-**Phase 8 — Agentic AI (in progress)**
+**Phase 8 — Agentic AI (complete, moving to Phase 9)**
 
 Phase 6 is complete. All eight Phase 6 tasks are checked off: data loading, scoring, feature engineering, and model training all live in tested `src/` modules; a reusable single-player prediction function and model persistence (save/load) exist; and the notebook's manual MAE/RMSE calculations were replaced with `evaluate_predictions()`.
 
@@ -671,7 +671,9 @@ A second tool, `get_recent_stats`, was added the same way: a plain `_fetch_recen
 
 A third tool, `compare_players(player_a, player_b)`, was added to close out the "comparison tool"/"start-sit workflow" tasks as one tool rather than a separate multi-agent workflow, consistent with the project's "one tool-using agent" decision. `_compare_players()` fetches both players' projections from the FastAPI backend and determines which is higher in plain Python — the numeric comparison is deterministic, so it isn't left to the LLM to eyeball. `tests/test_agent.py` covers the higher/tie/not-found cases against stubbed responses. Verified live: "Should I start CeeDee Lamb or Puka Nacua this week?" correctly called `compare_players` and recommended Puka Nacua, matching the real API values exactly (20.89 vs. 15.08).
 
-All 7 test scripts now pass (`test_scoring`, `test_features`, `test_modeling`, `test_predict`, `test_data`, `test_api`, `test_agent`). All three of the agent's planned tools now exist; remaining Phase 8 work is tracing/eval examples before closing out the phase.
+All 7 test scripts now pass (`test_scoring`, `test_features`, `test_modeling`, `test_predict`, `test_data`, `test_api`, `test_agent`). All three of the agent's planned tools now exist.
+
+Phase 8 is now complete. `src/agent.py` adds `summarize_tool_calls(result)`, which reads `result.new_items` to produce a simple human-readable trace of which tools were called and what they returned — a lightweight local stand-in for the Agents SDK's hosted OpenAI tracing dashboard, which needs OpenAI billing this project doesn't have (the agent runs on Gemini). It also adds `eval_projection_is_grounded(player_display_name)`, a minimal grounding check that runs the agent, confirms `get_player_projection` was actually called (via the trace) rather than guessed, and confirms the number in the agent's final answer matches the deterministic API value fetched independently. Both were verified live: the trace correctly showed `compare_players` being called for the start/sit demo query, and the grounding eval returned `True` for CeeDee Lamb, confirming the agent's answer traces back to real tool output rather than an invented number.
 
 ## Current Status
 
@@ -762,14 +764,17 @@ Phase 5 is now considered complete. Linear Regression is the final MVP model wit
 
 ## Immediate Goal
 
-Close out Phase 8 by adding trace/evaluation examples, then move to Phase 9 (Frontend).
+Begin Phase 9: build a simple Next.js frontend that connects to the FastAPI backend (and, for the agent chat feature, to the agent) rather than reimplementing any of the Python logic in JavaScript.
 
 ## Current Next Steps
 
-1. Add trace/evaluation examples (the Agents SDK has built-in tracing — inspect a run's tool calls/spans).
-2. Mark Phase 8 complete once tracing is demonstrated, and update Current Phase to Phase 9.
-3. If OpenAI billing is restored, consider switching the agent's `model=` back to an OpenAI model instead of Gemini.
-4. Continue avoiding frontend/deployment work until then, per the roadmap.
+1. Create a Next.js (TypeScript) project, kept simple per the MVP frontend scope.
+2. Connect the frontend to the running FastAPI backend (`/players/{player_display_name}`, `/predictions/{player_display_name}`).
+3. Add a player selector, a projection card, and recent-stats display.
+4. Add a two-player comparison UI.
+5. Add a simple chat-style input that calls the Fantasy Analyst Agent (this likely needs a small FastAPI route wrapping `Runner.run_sync`, since the agent currently only runs as a Python script).
+6. Add loading/error states.
+7. If OpenAI billing is restored, consider switching the agent's `model=` back to an OpenAI model instead of Gemini — not required for the frontend to work either way.
 
 ## Currently NOT Working On
 
@@ -1119,6 +1124,16 @@ Format:
 
 ---
 
+### 2026-08-30 — Phase 8 closed out: all three tools plus trace/eval
+
+**Decision:** Add the remaining planned tools (`get_recent_stats`, `compare_players`) and a lightweight trace/eval example, then mark Phase 8 complete and move to Phase 9 — Frontend.
+
+**Reason:** All Phase 8 roadmap tasks are now satisfied. `compare_players` does the numeric comparison in plain Python rather than leaving it to the LLM (per "deterministic code before agents"), which also satisfies the separate "start/sit workflow" task without needing multi-agent orchestration. Tracing/eval used `result.new_items` directly instead of the SDK's hosted OpenAI tracing dashboard, since that dashboard needs OpenAI billing this project doesn't have (the agent runs on Gemini, per the 2026-08-29 decision above).
+
+**Impact:** `src/agent.py` now has three tools (`get_player_projection`, `get_recent_stats`, `compare_players`), `summarize_tool_calls()` for a human-readable trace, and `eval_projection_is_grounded()` as a grounding check. All verified live against Gemini + the real FastAPI backend, not just unit tests. Phase 9 work should build a Next.js frontend against the FastAPI backend; exposing the agent over HTTP (for a chat feature) is deferred to when that frontend work needs it, rather than built speculatively now.
+
+---
+
 # 15. Session Handoff
 
 Before ending a substantial coding session, a coding assistant should leave this section accurate.
@@ -1163,11 +1178,11 @@ Replaced the four manual Polars baseline MAE/RMSE cells in `notebooks/03_further
 
 ## Work In Progress
 
-Phase 8 — Agentic AI, nearly complete. `src/agent.py` has three working tools (`get_player_projection`, `get_recent_stats`, `compare_players`) calling the FastAPI backend, all verified live against Gemini. Still missing: a tracing/eval example before the phase is fully closed out.
+Phase 8 — Agentic AI is complete. Phase 9 — Frontend has not been started; no `frontend/` or Next.js project exists yet.
 
 ## Next Recommended Task
 
-Add a small tracing/eval example showing the Agents SDK's built-in tracing for one of the existing queries (e.g. inspect the run result's tool-call spans), then mark Phase 8 complete and move Current Phase to Phase 9 — Frontend.
+Create a Next.js (TypeScript) project and connect it to the running FastAPI backend, starting with a player selector and a projection card backed by `GET /predictions/{player_display_name}`.
 
 ## Known Problems / Blockers
 

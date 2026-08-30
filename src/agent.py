@@ -3,7 +3,7 @@ import os
 import requests
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
-from agents import Agent, Runner, function_tool, OpenAIChatCompletionsModel
+from agents import Agent, RunResult, Runner, function_tool, OpenAIChatCompletionsModel
 
 load_dotenv()
 
@@ -145,9 +145,58 @@ fantasy_analyst_agent = Agent(
 )
 
 
+def summarize_tool_calls(result: RunResult) -> list[str]:
+    """
+    Pulls a simple, human-readable trace of which tools the agent called during
+    a run and what each one returned, straight from result.new_items.
+
+    This is a lightweight, local stand-in for the Agents SDK's hosted OpenAI
+    tracing dashboard, which requires OpenAI API billing this project doesn't
+    currently have configured (the agent runs on Gemini instead).
+    """
+    trace = []
+    for item in result.new_items:
+        if item.type == "tool_call_item":
+            trace.append(f"called tool: {item.tool_name}")
+        elif item.type == "tool_call_output_item":
+            trace.append(f"tool returned: {item.output}")
+    return trace
+
+
+def eval_projection_is_grounded(player_display_name: str) -> bool:
+    """
+    A minimal grounding check: asks the agent for a player's projection, then
+    confirms (a) it actually called get_player_projection rather than guessing,
+    and (b) the number in its final answer matches the deterministic API value
+    fetched independently here. This is the kind of check that matters most for
+    this project: catching an agent that answers fluently but isn't actually
+    using the real model output.
+    """
+    result = Runner.run_sync(
+        fantasy_analyst_agent,
+        f"How many points is {player_display_name} projected to score next week?",
+    )
+
+    trace = summarize_tool_calls(result)
+    called_projection_tool = any("get_player_projection" in line for line in trace)
+
+    expected = _fetch_projection(player_display_name)
+    expected_ppr = expected.split("projected for ")[1].split(" full-PPR")[0]
+    number_is_grounded = expected_ppr in result.final_output
+
+    return called_projection_tool and number_is_grounded
+
+
 if __name__ == "__main__":
     result = Runner.run_sync(
         fantasy_analyst_agent,
         "Should I start CeeDee Lamb or Puka Nacua this week?",
     )
     print(result.final_output)
+    print("\n--- trace ---")
+    for line in summarize_tool_calls(result):
+        print(line)
+
+    print("\n--- grounding eval ---")
+    grounded = eval_projection_is_grounded("CeeDee Lamb")
+    print(f"CeeDee Lamb projection grounded in real tool output: {grounded}")
