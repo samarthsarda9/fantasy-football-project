@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 
 import polars as pl
@@ -10,7 +11,7 @@ from src.agent import fantasy_analyst_agent, summarize_tool_calls
 from src.data import load_wr_weekly_stats
 from src.scoring import calculate_ppr
 from src.features import create_features, create_defensive_features
-from src.modeling import load_model
+from src.modeling import load_model, save_model, train_linear_regression
 from src.predict import get_latest_player_row, predict_player_projection
 
 SEASONS = [2021, 2022, 2023, 2024, 2025]
@@ -32,18 +33,33 @@ async def lifespan(app: FastAPI):
     stats_with_features = create_features(scored_stats)
     features_df = create_defensive_features(stats_with_features)
 
-    model = load_model()
+    try:
+        model = load_model()
+    except FileNotFoundError:
+        # models/ is gitignored (a regenerable artifact, not source), so a
+        # fresh deploy won't have it on disk yet. Training is fast enough
+        # (Linear Regression) to do once at startup rather than requiring a
+        # separate build step or committing the binary.
+        model, _mae, _rmse = train_linear_regression(features_df)
+        save_model(model)
 
     yield
 
 
 app = FastAPI(title="Fantasy Football AI Predictor", lifespan=lifespan)
 
-# Allows the Next.js dev server (a different origin) to call this API directly
-# from the browser. Local dev origins only; revisit before deploying either app.
+# Allows the frontend (a different origin) to call this API directly from the
+# browser. Local dev origins are always allowed; add deployed frontend
+# origins via the ALLOWED_ORIGINS env var (comma-separated) rather than
+# hardcoding them, since that URL isn't known until the frontend is deployed.
+_extra_origins = [
+    origin.strip()
+    for origin in os.getenv("ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", *_extra_origins],
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )

@@ -122,6 +122,40 @@ class FailingRunner:
         raise RuntimeError("boom")
 
 
+def test_startup_trains_model_when_missing():
+    """
+    On a fresh deploy, models/ won't have a saved model yet (it's gitignored).
+    Startup should train and save one instead of crashing.
+    """
+    saved = {}
+    original_train = api.train_linear_regression
+    original_save = api.save_model
+
+    def fake_load_model():
+        raise FileNotFoundError()
+
+    def fake_train_linear_regression(df):
+        return StubModel(), 0.0, 0.0
+
+    def fake_save_model(model):
+        saved["called"] = True
+
+    api.load_wr_weekly_stats = lambda seasons: make_raw_stats()
+    api.load_model = fake_load_model
+    api.train_linear_regression = fake_train_linear_regression
+    api.save_model = fake_save_model
+
+    try:
+        with TestClient(api.app) as client:
+            response = client.get("/health")
+    finally:
+        api.train_linear_regression = original_train
+        api.save_model = original_save
+
+    assert response.status_code == 200
+    assert saved.get("called") is True
+
+
 def test_ask_agent_success():
     original_runner = api.Runner
     api.Runner = FakeRunner
@@ -156,6 +190,7 @@ if __name__ == "__main__":
     test_get_player_stats_not_found()
     test_get_player_projection_found()
     test_get_player_projection_not_found()
+    test_startup_trains_model_when_missing()
     test_ask_agent_success()
     test_ask_agent_failure()
     print("All API tests passed.")

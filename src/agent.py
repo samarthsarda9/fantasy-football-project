@@ -7,7 +7,11 @@ from agents import Agent, RunResult, Runner, function_tool, OpenAIChatCompletion
 
 load_dotenv()
 
-API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
+# The agent's tools call this project's own FastAPI backend over HTTP, even
+# when running inside that same backend process (see the /agent/ask route).
+# Falling back to $PORT (rather than hardcoding 8000) matters on hosts like
+# Render that assign the listening port dynamically via that env var.
+API_BASE_URL = os.getenv("API_BASE_URL", f"http://127.0.0.1:{os.getenv('PORT', 8000)}")
 
 # Gemini exposes an OpenAI-compatible endpoint, so the existing openai-agents
 # SDK can talk to it directly through a custom client instead of requiring a

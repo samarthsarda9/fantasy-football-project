@@ -647,6 +647,34 @@ The project can be demonstrated through a public URL and explained clearly in an
 
 ---
 
+## Phase 11 — Running Back Expansion
+
+Target: after Phase 10 (post-MVP).
+
+Goal:
+
+Extend the existing WR pipeline to running backs, as the first step in generalizing beyond wide receivers. This phase exists because the developer asked to expand beyond WRs; running backs were chosen to go first since they reuse the current full-PPR scoring formula and feature pipeline almost as-is (rushing + some receiving, no new scoring categories needed), unlike quarterbacks.
+
+Tasks:
+
+* [ ] Load/filter RB weekly stats (extend `src/data.py`, likely a `position` parameter rather than a hardcoded `"WR"` filter)
+* [ ] Verify `calculate_ppr` produces correct results for RBs against `fantasy_points_ppr` (confirm no new scoring categories are needed, unlike QB)
+* [ ] Re-evaluate whether WR feature set (`create_features`, `create_defensive_features`) transfers as-is or needs RB-specific adjustments (e.g. rushing volume matters more than targets)
+* [ ] Build an RB baseline (rolling/season-to-date), same pattern as Phase 3
+* [ ] Train and evaluate an RB-specific model (separate from the WR model; do not assume one model generalizes across positions)
+* [ ] Extend `src/api.py` routes to support a position parameter or RB-specific routes
+* [ ] Extend the frontend player selector/cards to work across positions
+* [ ] Extend agent tools if they assume WR-only data
+* [ ] Update `PROJECT_CONTEXT.md` (Section 5's "WR-only" scope note, the non-goals list) once RB support is real, rather than leaving it stale
+
+Completion criteria:
+
+The system can generate a measured, evaluated RB projection end-to-end (data → scoring → baseline → model → API → frontend) with the same rigor as the WR pipeline, without having broken WR support.
+
+**Not in scope for this phase:** tight ends, quarterbacks. QB in particular needs the full-PPR scoring formula extended first (passing yards/TDs/interceptions aren't in it yet) — treat that as its own future phase, not a small addition to this one.
+
+---
+
 # 10. Current Project Status
 
 ## Current Phase
@@ -1195,6 +1223,28 @@ Format:
 
 ---
 
+### 2026-08-30 — Plan to expand beyond WR-only, after MVP completion
+
+**Decision:** The developer asked to expand the project beyond wide receivers to include RBs, TEs, and QBs. Agreed sequencing: finish Phase 10 (deployment/polish) first so the WR-only MVP is fully locked in, then tackle multi-position support as a new Phase 11, starting with running backs specifically (not all three positions at once).
+
+**Reason:** This request directly revisits two explicit prior decisions — the "WR-only MVP" decision and Section 4's non-goals list (which permits QB/RB/TE models "unless the MVP is already complete"). Since Phase 10 is the only remaining MVP work, the conflict is more about sequencing than substance. RB goes first because it reuses the existing full-PPR scoring formula and feature pipeline almost as-is; QB is a much larger lift because passing yards/TDs/interceptions aren't in the scoring formula at all yet, and was explicitly deferred to its own future phase rather than folded into the RB work.
+
+**Impact:** Added "Phase 11 — Running Back Expansion" to the roadmap (Section 9) with its own task list, mirroring the rigor of the original WR phases (don't assume the WR model/features transfer without verification). Do not start Phase 11 work until Phase 10 is complete. TE and QB are follow-on phases after RB, not part of Phase 11.
+
+---
+
+### 2026-08-31 — Phase 10 deployment prep, and a real bug found by testing it
+
+**Decision:** Chose Vercel for the frontend and Render for the backend (developer's picks). Made the backend deployment-ready: `src/api.py`'s CORS origins now also read a comma-separated `ALLOWED_ORIGINS` env var (the deployed frontend URL isn't known until it's deployed, so it can't be hardcoded); startup now falls back to training and saving a fresh model if `models/linear_regression.joblib` isn't on disk (it's gitignored, so a fresh deploy won't have it) instead of requiring a separate build step or committing the binary; `src/agent.py`'s self-referential `API_BASE_URL` now falls back to `$PORT` instead of hardcoding `8000`, since Render assigns the listening port dynamically. Added `render.yaml` (Render Blueprint) and a separate, minimal `requirements-render.txt` rather than reusing the full dev `requirements.txt`.
+
+**Reason:** `requirements.txt` is a full local `pip freeze` including Jupyter/notebook tooling the deployed API never uses, and it includes `appnope` (a macOS-only package with no real purpose on Render's Linux hosts) — deploying with it risks a broken or needlessly slow build. `requirements-render.txt` lists only what `src/` actually imports (traced via `grep` across `src/`), pinned to the versions already tested in this session.
+
+**Impact — a real bug found by actually testing the deploy path, not just writing the code:** simulating a fresh deploy (moved the model file out of the way, ran `uvicorn` fresh) crashed with `ValueError: Input X contains NaN` inside `train_linear_regression`. Root cause: `notebooks/03_further_engineering.ipynb` has always dropped rows with null rolling-feature values (players without 3 prior games yet) *inline in the notebook* before calling `train_linear_regression()` — that filtering step was never extracted into `src/`, so it silently worked only because every previous caller trained via the notebook first and then just loaded the saved model. `src/modeling.py`'s `make_train_test_data()` now calls `dataset.drop_nulls(subset=[*feature_columns, target_column])` itself, so any caller (notebook, API, future code) gets correct behavior automatically. Re-verified: fresh-deploy simulation (trimmed requirements, no model file, custom port, in a scratch venv) now starts cleanly and reproduces the exact same **15.08** CeeDee Lamb projection as the previously saved model, confirming the fallback training is correct and deterministic. All 7 test scripts still pass; `tests/test_api.py` gained `test_startup_trains_model_when_missing()` covering this path offline.
+
+**Not yet done:** the actual Render/Vercel deployments themselves — those need the developer's own accounts and can't be done from here. `render.yaml` and `requirements-render.txt` make it close to one-click on Render's side once the developer connects the repo.
+
+---
+
 # 15. Session Handoff
 
 Before ending a substantial coding session, a coding assistant should leave this section accurate.
@@ -1239,11 +1289,11 @@ Replaced the four manual Polars baseline MAE/RMSE cells in `notebooks/03_further
 
 ## Work In Progress
 
-Phase 9 — Frontend is complete, including a visual redesign (color palette from the `dataviz` skill, restyled cards/chat/comparison view). Phase 10 — Resume Polish + Deployment has not been started; the app currently only runs locally.
+Phase 10 — Resume Polish + Deployment, in progress. Hosting chosen: Vercel (frontend), Render (backend). The repo is now deployment-ready (`render.yaml`, `requirements-render.txt`, CORS/env var flexibility, model auto-train fallback — see the 2026-08-31 decision log entry), verified with a from-scratch local simulation of a fresh Render deploy. The actual Render/Vercel deployments have not been done yet — that needs the developer's own accounts.
 
 ## Next Recommended Task
 
-Decide on a deployment approach (frontend and backend can use different hosts, e.g. Vercel for `frontend/` and a container host for the FastAPI backend), then deploy the backend first since the frontend needs its real URL for `NEXT_PUBLIC_API_BASE_URL` and CORS `allow_origins`.
+Walk through the actual deploys: Render first (Blueprint from `render.yaml`, set `GEMINI_API_KEY`), then Vercel (root directory `frontend`, set `NEXT_PUBLIC_API_BASE_URL` to the Render URL), then set `ALLOWED_ORIGINS` on Render to the Vercel URL. Once both URLs exist, verify production connectivity end to end (not just localhost) before moving to README/docs/tests polish. Do not start Phase 11 (RB expansion, see roadmap) until Phase 10 is complete — that sequencing was explicitly agreed with the developer.
 
 ## Known Problems / Blockers
 

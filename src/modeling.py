@@ -35,6 +35,12 @@ def make_train_test_data(
     Returns:
     tuple: A tuple containing four numpy arrays: X_train, X_test, y_train, y_test.
     """
+    # Early-season rows (e.g. a player's first 3 games) don't have a full
+    # rolling window yet, so their feature columns are null. scikit-learn
+    # can't train on NaNs, so drop those rows here rather than requiring
+    # every caller to remember to pre-filter.
+    dataset = dataset.drop_nulls(subset=[*feature_columns, target_column])
+
     X_train = dataset.filter(pl.col("season") < test_season).select(feature_columns).to_numpy()
 
     X_test = dataset.filter(pl.col("season") == test_season).select(feature_columns).to_numpy()
