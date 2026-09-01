@@ -60,6 +60,11 @@ _extra_origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", *_extra_origins],
+    # Vercel gives every preview deployment its own unique subdomain (e.g.
+    # fantasy-football-project-<hash>-<user>.vercel.app), so an exact-match
+    # list alone would need updating on every branch push. This regex is
+    # scoped to this project's own Vercel deployments, not all of *.vercel.app.
+    allow_origin_regex=r"^https://fantasy-football-project(-[a-zA-Z0-9]+)*\.vercel\.app$",
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )

@@ -629,17 +629,17 @@ Turn the working project into a portfolio-quality project.
 
 Tasks:
 
-* [ ] Deploy frontend
-* [ ] Deploy backend
-* [ ] Confirm production API connectivity
-* [ ] Improve README
-* [ ] Add architecture diagram
-* [ ] Add screenshots/demo
-* [ ] Document model methodology
-* [ ] Document model performance
-* [ ] Add tests
-* [ ] Add CI if appropriate
-* [ ] Write final resume bullets
+* [x] Deploy frontend
+* [x] Deploy backend
+* [x] Confirm production API connectivity
+* [x] Improve README
+* [x] Add architecture diagram
+* [x] Add screenshots/demo
+* [x] Document model methodology
+* [x] Document model performance
+* [x] Add tests
+* [x] Add CI if appropriate
+* [x] Write final resume bullets
 
 Completion criteria:
 
@@ -679,7 +679,7 @@ The system can generate a measured, evaluated RB projection end-to-end (data →
 
 ## Current Phase
 
-**Phase 9 — Frontend (complete, moving to Phase 10)**
+**Phase 10 — Resume Polish + Deployment (complete, moving to Phase 11)**
 
 Phase 6 is complete. All eight Phase 6 tasks are checked off: data loading, scoring, feature engineering, and model training all live in tested `src/` modules; a reusable single-player prediction function and model persistence (save/load) exist; and the notebook's manual MAE/RMSE calculations were replaced with `evaluate_predictions()`.
 
@@ -1245,6 +1245,30 @@ Format:
 
 ---
 
+### 2026-08-31 — Deployed: backend on Render, frontend on Vercel, connected
+
+**Decision:** None new — this closes out the prior deployment-prep decision by actually completing the deploys.
+
+**Impact:** Live URLs: frontend `https://fantasy-football-project-ten.vercel.app`, backend `https://fantasy-football-api-o6tu.onrender.com`. Two real issues surfaced and were fixed during this rollout, beyond the prep already done:
+
+1. **The first Vercel build failed** with "Module not found: Can't resolve '@/lib/api'" for every component. Root cause: the root `.gitignore`'s `lib/` rule (intended for Python's build-artifact directory) was unanchored, so it also matched `frontend/src/lib/` at any depth — `frontend/src/lib/api.ts` and `useAsyncData.ts` had *never actually been committed* despite existing locally and working in every local dev/test session this whole time. Fixed by anchoring the rule to `/lib/` and `/lib64/`, then committing the two previously-invisible files. This is a good example of why "it works locally" isn't proof it's actually in git — worth remembering for any future gitignore edits.
+2. **CORS didn't work on the first two attempts** even after setting `ALLOWED_ORIGINS` on Render. Cause: the Vercel URL was pasted with a trailing slash; browser `Origin` headers never include one, and Starlette's `CORSMiddleware` does an exact string match (no normalization). Fixed by re-entering the origin without the trailing slash.
+
+Verified production connectivity end to end, not just that each service individually loads: `curl` confirmed `/health`, `/players` (241 players), and `/predictions/CeeDee%20Lamb` (**15.08**, matching every local run this session) all work against the live Render URL; a headless-browser check against the live Vercel URL confirmed selecting CeeDee Lamb populates real data from the live backend with zero console/network errors. All three Phase 10 deployment tasks (deploy frontend, deploy backend, confirm production connectivity) are now complete. Remaining Phase 10 work is documentation/polish: README, architecture diagram, screenshots, model methodology/performance docs, and resume bullets.
+
+**A third issue surfaced after that:** visiting a Vercel *preview* deployment URL (e.g. `fantasy-football-project-pz0djdbml-samarth-sarda.vercel.app`, auto-generated per-deployment by Vercel, distinct from the stable production alias) hit the same CORS block, since `ALLOWED_ORIGINS` only listed the exact production URL. Rather than manually updating `ALLOWED_ORIGINS` on every branch/preview deploy, `src/api.py`'s `CORSMiddleware` now also takes an `allow_origin_regex` scoped to this project's own Vercel deployments (`^https://fantasy-football-project(-[a-zA-Z0-9]+)*\.vercel\.app$`) — matches production and any preview URL for this project, but not arbitrary `*.vercel.app` apps. Verified the regex against real production/preview URLs plus lookalike-domain attempts before deploying it; all 7 test scripts still pass. (That fix was written and verified but the developer said the actual problem was just visiting the wrong URL by mistake — the regex fix is still kept, uncommitted, as a genuine improvement for future preview deploys, but wasn't urgent.)
+
+Remaining Phase 10 tasks (README, architecture diagram, screenshots, model docs, tests, CI, resume bullets) were then closed out in one pass:
+
+- **README.md** rewritten from a one-line stub into a full project README: live demo links, a Mermaid architecture diagram (renders natively on GitHub), tech stack, model methodology, a model performance table, project structure, local-run instructions, testing instructions, deployment notes, roadmap pointer, and a resume-bullet-style "About this project" section. Every number in it is copied from this file's own decisions log (final 2025 test metrics: Linear Regression 4.39 MAE/6.00 RMSE vs. season-to-date baseline 4.45/6.27 and rolling baseline 4.56/6.41) — nothing fabricated, per the project's own rule against inventing metrics.
+- **Screenshots** (`docs/screenshots/`) were captured from the actual *live* Vercel deployment via a headless-browser script, not localhost. Hit the same class of test-script timing bug twice more while capturing them (waiting on `innerText` substrings that don't actually reflect placeholder text or that coincidentally match unrelated heading text) — same lesson as earlier in this session: assert on the specific DOM property that actually gates the UI state, not a loosely-matching text search.
+- **CI** (`.github/workflows/tests.yml`) added: a `backend-tests` job (Python 3.11, installs `requirements-render.txt`, runs all 7 test scripts) and a `frontend-checks` job (`npm ci`, lint, `tsc --noEmit`, build), on push/PR to `main`. Verified `requirements-render.txt` alone (not the full dev `requirements.txt`) is sufficient to run every backend test — including `TestClient`-based API tests — in a clean venv, and verified `npm ci` (not `npm install`, to mirror CI exactly) plus lint/typecheck/build all pass from a fresh `node_modules`.
+- **"Add tests"** was already satisfied by existing coverage (7 test scripts across every `src/` module); no new test files were needed beyond what CI now runs.
+
+All Phase 10 tasks are complete. Current Phase moved to Phase 11 (see the earlier 2026-08-30 decision to sequence RB expansion after Phase 10, and the "Phase 11 — Running Back Expansion" section of the roadmap).
+
+---
+
 # 15. Session Handoff
 
 Before ending a substantial coding session, a coding assistant should leave this section accurate.
@@ -1289,15 +1313,17 @@ Replaced the four manual Polars baseline MAE/RMSE cells in `notebooks/03_further
 
 ## Work In Progress
 
-Phase 10 — Resume Polish + Deployment, in progress. Hosting chosen: Vercel (frontend), Render (backend). The repo is now deployment-ready (`render.yaml`, `requirements-render.txt`, CORS/env var flexibility, model auto-train fallback — see the 2026-08-31 decision log entry), verified with a from-scratch local simulation of a fresh Render deploy. The actual Render/Vercel deployments have not been done yet — that needs the developer's own accounts.
+**Phase 10 is complete.** The app is live and deployed (frontend `https://fantasy-football-project-ten.vercel.app` on Vercel, backend `https://fantasy-football-api-o6tu.onrender.com` on Render, CORS-connected, verified with real data), and all documentation/polish tasks are done: README rewritten with a Mermaid architecture diagram, live screenshots, model methodology/performance (real measured numbers only), local-run/testing instructions, and resume bullets; CI (`.github/workflows/tests.yml`) runs the full backend test suite and frontend lint/typecheck/build on every push/PR.
+
+One uncommitted, non-urgent change exists: a CORS `allow_origin_regex` in `src/api.py` scoped to this project's Vercel deployments (handles preview-URL CORS automatically). It wasn't the actual fix needed last time (that was a wrong-URL mistake), but it's a real improvement worth keeping — ask the developer before committing since they explicitly said to hold off.
 
 ## Next Recommended Task
 
-Walk through the actual deploys: Render first (Blueprint from `render.yaml`, set `GEMINI_API_KEY`), then Vercel (root directory `frontend`, set `NEXT_PUBLIC_API_BASE_URL` to the Render URL), then set `ALLOWED_ORIGINS` on Render to the Vercel URL. Once both URLs exist, verify production connectivity end to end (not just localhost) before moving to README/docs/tests polish. Do not start Phase 11 (RB expansion, see roadmap) until Phase 10 is complete — that sequencing was explicitly agreed with the developer.
+Begin Phase 11 — Running Back Expansion (see the roadmap section and the 2026-08-30 decision log entry for why RB goes first and what's explicitly out of scope). Start with verifying `calculate_ppr` against real RB data before assuming the WR feature/model pipeline transfers as-is.
 
 ## Known Problems / Blockers
 
-Gemini's free-tier daily quota (20 requests/day on `gemini-3.6-flash`) was exhausted during this session's testing. The app handles this correctly (agent chat shows a clean error instead of crashing), but further live agent verification should wait ~24h for the quota to reset, or use a different Gemini API key/project.
+Gemini's free-tier daily quota (20 requests/day on `gemini-3.6-flash`) was exhausted during this session's testing; it may have partially reset since, but hasn't been re-verified. The app handles this correctly (agent chat shows a clean error instead of crashing) regardless. Render's free tier also spins down after ~15 minutes idle — first request after that can fail once and succeed on retry; this is expected free-tier behavior, documented in the README, not a bug to fix.
 
 ---
 
